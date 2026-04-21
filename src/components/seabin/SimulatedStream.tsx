@@ -517,7 +517,7 @@ export default function SimulatedStream({ seabinId, scenario = 'default' }: Prop
     : 'bg-teal-50 text-teal-600 border-teal-200'
 
   return (
-    <div className="bg-white border border-teal-200 rounded-xl p-5 shadow-sm flex flex-col gap-3">
+    <div className="bg-white border border-teal-200 rounded-xl p-5 shadow-sm flex flex-col gap-3 h-full">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-slate-500 text-sm">
           <Video size={16} className="text-teal-500" />
@@ -533,7 +533,7 @@ export default function SimulatedStream({ seabinId, scenario = 'default' }: Prop
           </span>
         </div>
       </div>
-      <div className="relative w-full aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+      <div className="relative w-full flex-1 min-h-[200px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
         <canvas ref={canvasRef} className="w-full h-full object-cover rounded-lg" />
       </div>
     </div>

@@ -6,6 +6,7 @@ import { aiInsights, detectionLogs } from '../data/detections'
 import SimulatedStream from '../components/seabin/SimulatedStream'
 import ImageUploadTest from '../components/seabin/ImageUploadTest'
 import SystemStatusCard from '../components/seabin/SystemStatusCard'
+import QuickStats from '../components/seabin/QuickStats'
 import SeabinAlerts from '../components/seabin/SeabinAlerts'
 import RiverHealthCard from '../components/dashboard/RiverHealthCard'
 import ContaminationRiskCard from '../components/dashboard/ContaminationRiskCard'
@@ -77,29 +78,38 @@ export default function SeabinDetail() {
         </div>
       )}
 
-      {/* Row 1: Stream/Upload + Status & Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="flex flex-col gap-4">
+      {/* Row 1: Stream + Quick Stats + System Status */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">
+        <div className="lg:col-span-3 flex">
           {isInactive ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm w-full flex flex-col">
               <div className="text-sm text-slate-400 mb-3">Live Stream</div>
-              <div className="w-full aspect-video bg-slate-50 rounded-lg border border-slate-200 flex flex-col items-center justify-center gap-2">
+              <div className="flex-1 bg-slate-50 rounded-lg border border-slate-200 flex flex-col items-center justify-center gap-2">
                 <WifiOff size={32} className="text-slate-300" />
                 <div className="text-sm text-slate-400">Stream unavailable</div>
                 <div className="text-xs text-slate-300">Seabin is offline</div>
               </div>
             </div>
           ) : isTestSeabin ? (
-            <ImageUploadTest onDetectionComplete={() => setUploadDone(true)} />
+            <div className="w-full">
+              <ImageUploadTest onDetectionComplete={() => setUploadDone(true)} />
+            </div>
           ) : (
-            <SimulatedStream seabinId={seabin.id} scenario={scenario} />
+            <div className="w-full">
+              <SimulatedStream seabinId={seabin.id} scenario={scenario} />
+            </div>
           )}
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="lg:col-span-2 flex flex-col gap-4">
           <SystemStatusCard seabin={seabin} />
-          <SeabinAlerts seabinId={seabin.id} />
+          <div className="flex-1">
+            <QuickStats seabin={seabin} />
+          </div>
         </div>
       </div>
+
+      {/* Row 2: Alerts — full width */}
+      <SeabinAlerts seabinId={seabin.id} />
 
       {/* Row 2: Contamination Risk + River Health */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

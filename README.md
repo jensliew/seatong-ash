@@ -48,14 +48,14 @@ npm run preview
 src/
 ├── pages/              # Route-level pages
 │   ├── Dashboard       # Overview: map, health score, risk chart, detection table
-│   ├── SeabinDetail    # Per-seabin: live stream, status, alerts, AI insights
+│   ├── SeabinDetail    # Per-seabin: live stream, system status, quick stats, alerts, AI insights
 │   ├── Alerts          # All alerts grouped by seabin equipment / river condition
 │   └── Contact         # Partnership & sponsorship inquiry form
 │
 ├── components/
 │   ├── map/            # Leaflet heatmap with seabin markers
 │   ├── dashboard/      # Stat cards, contamination chart, debris table
-│   ├── seabin/         # Live stream, system status, alerts, image upload (AI test)
+│   ├── seabin/         # Live stream, system status, quick stats, alerts, image upload (AI test)
 │   ├── insights/       # Accuracy metrics, detection log, predictions
 │   └── alerts/         # Alert groups by type
 │
@@ -70,7 +70,7 @@ src/
 | Route | Description |
 |---|---|
 | `/` | Dashboard — heatmap, river health, contamination risk by area, dead fish count, detection table |
-| `/seabin/:id` | Seabin detail — live stream (simulated AI vision), system status, alerts, AI insights |
+| `/seabin/:id` | Seabin detail — live stream (simulated AI vision), system status, quick stats, alerts, AI insights |
 | `/alerts` | Alert list — grouped by seabin equipment alerts and river condition alerts |
 | `/contact` | Contact form — partnership, sponsorship, general inquiries |
 

@@ -79,7 +79,7 @@ export default function Contact() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="[email]"
+              placeholder="e-mail"
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
             />
           </div>
@@ -135,7 +135,7 @@ export default function Contact() {
           <Mail size={14} className="text-teal-500" />
           <span className="font-medium text-slate-600">Reach us directly</span>
         </div>
-        <p>Email us at <span className="text-teal-600 font-medium">[email]</span> for partnership or sponsorship inquiries.</p>
+        <p>Email us at <span className="text-teal-600 font-medium">seatong@contact.com</span> for partnership or sponsorship inquiries.</p>
       </div>
     </div>
   )
