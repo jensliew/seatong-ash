@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import SeabinDetail from './pages/SeabinDetail'
 import Alerts from './pages/Alerts'
 import Contact from './pages/Contact'
+import Fleet from './pages/Fleet'
 import SplashScreen from './components/SplashScreen'
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
           <Routes>
             <Route element={<MainLayout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/fleet" element={<Fleet />} />
               <Route path="/seabin/:id" element={<SeabinDetail />} />
               <Route path="/alerts" element={<Alerts />} />
               <Route path="/contact" element={<Contact />} />
