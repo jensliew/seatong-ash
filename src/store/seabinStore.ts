@@ -9,12 +9,13 @@ interface SeabinStore {
 
 export const useSeabinStore = create<SeabinStore>((set) => ({
   seabins: initialSeabins,
+
   toggleStatus: (id) =>
     set((state) => ({
       seabins: state.seabins.map((sb) =>
         sb.id === id
           ? { ...sb, status: sb.status === 'active' ? 'paused' : 'active' }
-          : sb
+          : sb,
       ),
     })),
 }))

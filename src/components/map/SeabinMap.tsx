@@ -28,12 +28,22 @@ const riskColor: Record<Seabin['contamination_risk'], string> = {
   critical: '#dc2626',
 }
 
+// Port Klang bounding box for spawning new hotspots
+const BOUNDS = { latMin: 2.975, latMax: 3.055, lngMin: 101.35, lngMax: 101.43 }
+
+function randInBounds() {
+  const lat = BOUNDS.latMin + Math.random() * (BOUNDS.latMax - BOUNDS.latMin)
+  const lng = BOUNDS.lngMin + Math.random() * (BOUNDS.lngMax - BOUNDS.lngMin)
+  const intensity = 0.45 + Math.random() * 0.55
+  return [lat, lng, intensity] as [number, number, number]
+}
+
 export default function SeabinMap({ seabins }: Props) {
   const mapRef = useRef<L.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
-  const layerGroupRef = useRef<L.LayerGroup | null>(null)
-  const heatLayerRef = useRef<L.Layer | null>(null)
+  // store the heat layer and its live data so we can update it
+  const heatRef = useRef<{ layer: L.Layer; data: [number, number, number][] } | null>(null)
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -67,22 +77,53 @@ export default function SeabinMap({ seabins }: Props) {
     }
 
     const layerGroup = L.layerGroup().addTo(map)
-    layerGroupRef.current = layerGroup
+
+    // Seed initial heat data from seabins
+    const initialData: [number, number, number][] = seabins.map(
+      (sb) => [sb.lat, sb.lng, Math.max(0.25, sb.debris_intensity)],
+    )
 
     import('leaflet.heat').then(() => {
-      const heatData = seabins.map(
-        (sb) => [sb.lat, sb.lng, Math.max(0.25, sb.debris_intensity)] as [number, number, number],
-      )
       // @ts-expect-error leaflet.heat extends L
-      heatLayerRef.current = L.heatLayer(heatData, {
+      const hLayer = L.heatLayer(initialData, {
         radius: 70,
         blur: 45,
         maxZoom: 17,
         minOpacity: 0.35,
         gradient: heatGradient,
       }).addTo(map)
+
+      heatRef.current = { layer: hLayer, data: [...initialData] }
+
+      // ── Spawn a new hotspot every 6 s ──────────────────────────────────
+      const hotspotTimer = window.setInterval(() => {
+        if (!heatRef.current) return
+        const newPt = randInBounds()
+        const newData = [...heatRef.current.data, newPt]
+        // keep max 30 points so the map doesn't get overloaded
+        const trimmed: [number, number, number][] = newData.slice(-30)
+        heatRef.current.data = trimmed
+        // @ts-expect-error setLatLngs is the leaflet.heat API
+        heatRef.current.layer.setLatLngs(trimmed)
+
+        // Brief flash ring at the new point
+        const ring = L.circleMarker([newPt[0], newPt[1]], {
+          radius: 6,
+          color: '#ef4444',
+          weight: 2,
+          fillColor: '#ef444430',
+          fillOpacity: 0.5,
+          className: 'hotspot-ring',
+        }).addTo(map)
+        // remove after animation
+        setTimeout(() => map.removeLayer(ring), 2000)
+      }, 6000)
+
+      // cleanup timer on unmount
+      map.once('remove', () => window.clearInterval(hotspotTimer))
     })
 
+    // ── Seabin markers ────────────────────────────────────────────────────
     seabins.forEach((sb) => {
       const color = statusColor[sb.status]
       const haloColor = sb.contamination_risk === 'critical' ? '#dc2626' : color
@@ -158,8 +199,7 @@ export default function SeabinMap({ seabins }: Props) {
     return () => {
       map.remove()
       mapRef.current = null
-      layerGroupRef.current = null
-      heatLayerRef.current = null
+      heatRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

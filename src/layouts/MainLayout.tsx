@@ -1,29 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Bell, Mail, Waves, ChevronLeft, ChevronRight, Activity } from 'lucide-react'
+import {
+  LayoutDashboard, Bell, Mail, Waves, ChevronLeft, ChevronRight,
+  Activity, Droplet, Leaf,
+} from 'lucide-react'
 import { useSeabinStore } from '../store/seabinStore'
 import logoNav from '../assets/logo/SeaTong_Logo-transparent-2.png'
 
 const SIDEBAR_STORAGE_KEY = 'seatong-sidebar-collapsed'
 
 function readCollapsed(): boolean {
-  try {
-    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1'
-  } catch {
-    return false
-  }
+  try { return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1' } catch { return false }
 }
-
 function writeCollapsed(value: boolean) {
-  try {
-    localStorage.setItem(SIDEBAR_STORAGE_KEY, value ? '1' : '0')
-  } catch {
-    /* ignore */
-  }
+  try { localStorage.setItem(SIDEBAR_STORAGE_KEY, value ? '1' : '0') } catch { /* ignore */ }
 }
 
-const linkBase =
-  'group flex items-center rounded-lg text-[0.88rem] transition-colors w-full min-w-0'
+const linkBase = 'group flex items-center rounded-lg text-[0.88rem] transition-colors w-full min-w-0'
 
 function itemClass(isActive: boolean, collapsed: boolean) {
   const state = isActive
@@ -37,9 +30,7 @@ export default function MainLayout() {
   const seabins = useSeabinStore((s) => s.seabins)
   const [collapsed, setCollapsed] = useState(readCollapsed)
 
-  useEffect(() => {
-    writeCollapsed(collapsed)
-  }, [collapsed])
+  useEffect(() => { writeCollapsed(collapsed) }, [collapsed])
 
   const stats = useMemo(() => {
     const active = seabins.filter((s) => s.status === 'active').length
@@ -57,9 +48,12 @@ export default function MainLayout() {
         }`}
         aria-label="Main navigation"
       >
+        {/* Header */}
         <div
           className={`flex shrink-0 border-b border-slate-200/80 ${
-            collapsed ? 'flex-col items-center gap-2 px-2 py-3' : 'min-h-0 flex-row items-center gap-2 pl-2.5 pr-2.5 py-3'
+            collapsed
+              ? 'flex-col items-center gap-2 px-2 py-3'
+              : 'min-h-0 flex-row items-center gap-2 pl-2.5 pr-2.5 py-3'
           }`}
         >
           {!collapsed && (
@@ -88,6 +82,7 @@ export default function MainLayout() {
           </button>
         </div>
 
+        {/* Nav */}
         <nav
           className={`flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto py-3 ${
             collapsed ? 'px-1.5' : 'px-2.5'
@@ -98,48 +93,52 @@ export default function MainLayout() {
               Overview
             </div>
           )}
-          <NavLink
-            to="/"
-            end
-            title={collapsed ? 'Dashboard' : undefined}
-            className={({ isActive }) => itemClass(isActive, collapsed)}
-          >
+
+          <NavLink to="/" end title={collapsed ? 'Dashboard' : undefined} className={({ isActive }) => itemClass(isActive, collapsed)}>
             <LayoutDashboard className="shrink-0" size={18} />
             {!collapsed && <span className="truncate">Dashboard</span>}
           </NavLink>
-          <NavLink
-            to="/fleet"
-            title={collapsed ? 'Fleet' : undefined}
-            className={({ isActive }) => itemClass(isActive, collapsed)}
-          >
+
+          <NavLink to="/fleet" title={collapsed ? 'Fleet' : undefined} className={({ isActive }) => itemClass(isActive, collapsed)}>
             <Waves className="shrink-0" size={18} />
             {!collapsed && (
               <span className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="truncate">Fleet</span>
-                <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[0.65rem] font-medium text-slate-500">
-                  {stats.total}
-                </span>
+                <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[0.65rem] font-medium text-slate-500">{stats.total}</span>
               </span>
             )}
           </NavLink>
-          <NavLink
-            to="/alerts"
-            title={collapsed ? 'Alerts' : undefined}
-            className={({ isActive }) => itemClass(isActive, collapsed)}
-          >
+
+          <NavLink to="/alerts" title={collapsed ? 'Alerts' : undefined} className={({ isActive }) => itemClass(isActive, collapsed)}>
             <Bell className="shrink-0" size={18} />
             {!collapsed && (
               <span className="flex min-w-0 flex-1 items-center gap-2">
                 <span className="truncate">Alerts</span>
                 {stats.critical > 0 && (
-                  <span className="ml-auto rounded-full bg-red-50 px-1.5 py-0.5 text-[0.65rem] font-medium text-red-600 ring-1 ring-red-200">
-                    {stats.critical}
-                  </span>
+                  <span className="ml-auto rounded-full bg-red-50 px-1.5 py-0.5 text-[0.65rem] font-medium text-red-600 ring-1 ring-red-200">{stats.critical}</span>
                 )}
               </span>
             )}
           </NavLink>
 
+          {!collapsed && (
+            <div className="px-2.5 pb-1.5 pt-5 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              Monitoring
+            </div>
+          )}
+          {collapsed && <div className="my-1 h-px w-full shrink-0 bg-teal-100/80" role="presentation" />}
+
+          <NavLink to="/water-quality" title={collapsed ? 'Water Quality' : undefined} className={({ isActive }) => itemClass(isActive, collapsed)}>
+            <Droplet className="shrink-0" size={18} />
+            {!collapsed && <span className="truncate">Water Quality</span>}
+          </NavLink>
+
+          <NavLink to="/plastic-credits" title={collapsed ? 'Plastic Credits' : undefined} className={({ isActive }) => itemClass(isActive, collapsed)}>
+            <Leaf className="shrink-0" size={18} />
+            {!collapsed && <span className="truncate">Plastic Credits</span>}
+          </NavLink>
+
+          {/* Fleet status widget */}
           {!collapsed && (
             <>
               <div className="px-2.5 pb-1.5 pt-5 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-slate-400">
@@ -158,15 +157,13 @@ export default function MainLayout() {
                 </div>
                 <div className="mt-1.5 flex items-center justify-between text-[0.7rem]">
                   <span className="inline-flex items-center gap-1.5 text-slate-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                    Paused
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />Paused
                   </span>
                   <span className="font-semibold tabular-nums text-slate-800">{stats.paused}</span>
                 </div>
                 <div className="mt-1.5 flex items-center justify-between text-[0.7rem]">
                   <span className="inline-flex items-center gap-1.5 text-slate-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                    Offline
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />Offline
                   </span>
                   <span className="font-semibold tabular-nums text-slate-800">{stats.offline}</span>
                 </div>
@@ -176,20 +173,19 @@ export default function MainLayout() {
                 <Activity size={13} className="shrink-0" />
                 <span className="truncate">Live feed · Port Klang</span>
               </div>
+
             </>
           )}
         </nav>
 
+        {/* Footer */}
         <div
           className={`shrink-0 border-t border-slate-200/80 ${
             collapsed ? 'px-1.5 py-2.5 text-center' : 'px-4 py-3'
           }`}
         >
           {collapsed ? (
-            <span
-              className="block text-[0.6rem] font-medium leading-tight text-slate-400"
-              title="Port Klang, Malaysia"
-            >
+            <span className="block text-[0.6rem] font-medium leading-tight text-slate-400" title="Port Klang, Malaysia">
               PKL
             </span>
           ) : (
@@ -202,7 +198,7 @@ export default function MainLayout() {
               }
             >
               <Mail size={13} />
-              <span>Contact & partnerships</span>
+              <span>Contact &amp; partnerships</span>
             </NavLink>
           )}
         </div>

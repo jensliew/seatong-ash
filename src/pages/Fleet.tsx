@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { useSeabinStore } from '../store/seabinStore'
 import { detectionLogs } from '../data/detections'
 import SeabinCard from '../components/fleet/SeabinCard'
 import SeabinMap from '../components/map/SeabinMap'
 import type { Seabin } from '../types'
+
+const Seabin3D = lazy(() => import('../components/seabin/Seabin3D'))
 
 type StatusFilter = 'all' | Seabin['status']
 
@@ -65,25 +67,45 @@ export default function Fleet() {
     [seabins],
   )
 
+  // Pick the most interesting seabin for the 3D hero (critical first, else first active)
+  const heroSeabin =
+    seabins.find((s) => s.contamination_risk === 'critical') ??
+    seabins.find((s) => s.status === 'active') ??
+    seabins[0]
+
   return (
     <div className="flex flex-col gap-6 p-6 lg:p-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-teal-700/80">
-            Fleet
+      <header className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white px-7 py-6 lg:px-8 lg:py-7">
+        {/* subtle background glow */}
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-teal-400/10 blur-3xl" />
+
+        <div className="relative flex items-center justify-between gap-6">
+          <div className="min-w-0">
+            <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-teal-700/80">
+              Fleet
+            </div>
+            <h1 className="mt-1 text-[1.75rem] font-semibold tracking-tight text-slate-900">
+              Port Klang deployment
+            </h1>
+            <p className="mt-1 max-w-xl text-sm text-slate-500">
+              {counts.total} seabins across the Klang estuary — filter, search, and jump to any unit.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <StatPill label="Active" value={counts.active} tone="teal" />
+              <StatPill label="Paused" value={counts.paused} tone="amber" />
+              <StatPill label="Offline" value={counts.inactive} tone="slate" />
+              <StatPill label="Critical" value={counts.critical} tone="red" />
+            </div>
           </div>
-          <h1 className="mt-1 text-[1.75rem] font-semibold tracking-tight text-slate-900">
-            Port Klang deployment
-          </h1>
-          <p className="mt-1 max-w-xl text-sm text-slate-500">
-            {counts.total} seabins across the Klang estuary — filter, search, and jump to any unit.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <StatPill label="Active" value={counts.active} tone="teal" />
-          <StatPill label="Paused" value={counts.paused} tone="amber" />
-          <StatPill label="Offline" value={counts.inactive} tone="slate" />
-          <StatPill label="Critical" value={counts.critical} tone="red" />
+
+          {/* 3D seabin — decorative, auto-rotates, no controls */}
+          {heroSeabin && (
+            <div className="hidden shrink-0 lg:block" style={{ width: 180, height: 180 }}>
+              <Suspense fallback={null}>
+                <Seabin3D seabin={heroSeabin} ambient />
+              </Suspense>
+            </div>
+          )}
         </div>
       </header>
 
