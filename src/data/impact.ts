@@ -1,3 +1,8 @@
+import petronasLogo from '../assets/offtake-partners/petronas-logo.jpg'
+import miscLogo from '../assets/offtake-partners/MISC-logo.jpg'
+import unileverLogo from '../assets/offtake-partners/unilever-logo.jpg'
+import nestleLogo from '../assets/offtake-partners/Nestlé-logo.png'
+
 export interface ImpactStats {
   litres_filtered: number
   plastic_items: number
@@ -41,9 +46,10 @@ export const offtakePartners: Array<{
   name: string
   status: 'contracted' | 'pending' | 'interested'
   tonnes: number
+  logoSrc: string
 }> = [
-  { name: 'PETRONAS Dagangan', status: 'contracted', tonnes: 48 },
-  { name: 'MISC Berhad', status: 'pending', tonnes: 32 },
-  { name: 'Unilever Malaysia', status: 'pending', tonnes: 24 },
-  { name: 'Nestlé Malaysia', status: 'interested', tonnes: 18 },
+  { name: 'PETRONAS Dagangan', status: 'contracted', tonnes: 48, logoSrc: petronasLogo },
+  { name: 'MISC Berhad', status: 'pending', tonnes: 32, logoSrc: miscLogo },
+  { name: 'Unilever Malaysia', status: 'pending', tonnes: 24, logoSrc: unileverLogo },
+  { name: 'Nestlé Malaysia', status: 'interested', tonnes: 18, logoSrc: nestleLogo },
 ]

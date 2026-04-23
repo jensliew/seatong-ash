@@ -427,7 +427,8 @@ export default function SimulatedStream({ seabinId, scenario = 'default' }: Prop
         if (frame % 300 === 0 && fishRef.current.filter(f => !f.alive).length < 4) spawnFish(false)
       } else if (scenario === 'ph_deadfish') {
         if (frame % 200 === 0 && fishRef.current.length < 4) {
-          Math.random() > 0.4 ? spawnFish(true) : spawnFish(false)
+          if (Math.random() > 0.4) spawnFish(true)
+          else spawnFish(false)
         }
       } else {
         if (frame % 180 === 0 && fishRef.current.length < 5) spawnFish(true)

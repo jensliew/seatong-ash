@@ -164,8 +164,13 @@ export default function PlasticCredits() {
                 className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600">
-                    {p.name[0]}
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                    <img
+                      src={p.logoSrc}
+                      alt={p.name}
+                      className="max-h-9 max-w-[6rem] object-contain"
+                      loading="lazy"
+                    />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-slate-800">{p.name}</div>

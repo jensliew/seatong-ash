@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useNavigate } from 'react-router-dom'
 import type { Seabin } from '../../types'
+import { hash01 } from '../../lib/series'
 
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -28,108 +29,57 @@ const riskColor: Record<Seabin['contamination_risk'], string> = {
   critical: '#dc2626',
 }
 
-// Port Klang bounding box for spawning new hotspots
-const BOUNDS = { latMin: 2.975, latMax: 3.055, lngMin: 101.35, lngMax: 101.43 }
-
-function randInBounds() {
-  const lat = BOUNDS.latMin + Math.random() * (BOUNDS.latMax - BOUNDS.latMin)
-  const lng = BOUNDS.lngMin + Math.random() * (BOUNDS.lngMax - BOUNDS.lngMin)
-  const intensity = 0.45 + Math.random() * 0.55
-  return [lat, lng, intensity] as [number, number, number]
+/** Heat layer lat/lng/intensity — core + halo from debris_intensity only. */
+function debrisHeatPoints(seabins: Seabin[]): [number, number, number][] {
+  const points: [number, number, number][] = []
+  for (const sb of seabins) {
+    let idHash = 0
+    for (let i = 0; i < sb.id.length; i++) idHash = idHash * 31 + sb.id.charCodeAt(i)
+    const base = Math.max(0.18, Math.min(1, sb.debris_intensity))
+    points.push([sb.lat, sb.lng, base])
+    for (let k = 0; k < 6; k++) {
+      const angle = (k / 6) * Math.PI * 2 + hash01(idHash + k) * 0.35
+      const dist = (0.00085 + hash01(idHash + k * 7) * 0.0014) * (0.85 + base * 0.35)
+      points.push([
+        sb.lat + Math.cos(angle) * dist,
+        sb.lng + Math.sin(angle) * dist,
+        base * (0.32 + hash01(idHash + 100 + k) * 0.28),
+      ])
+    }
+  }
+  return points
 }
 
 export default function SeabinMap({ seabins }: Props) {
   const mapRef = useRef<L.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const markersLayerRef = useRef<L.LayerGroup | null>(null)
+  const heatLayerRef = useRef<{ setLatLngs: (pts: [number, number, number][]) => void } | null>(null)
+  const seabinsRef = useRef(seabins)
   const navigate = useNavigate()
-  // store the heat layer and its live data so we can update it
-  const heatRef = useRef<{ layer: L.Layer; data: [number, number, number][] } | null>(null)
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return
+    seabinsRef.current = seabins
+  }, [seabins])
 
-    const map = L.map(containerRef.current, {
-      center: [3.0089, 101.3928],
-      zoom: 12,
-      zoomControl: true,
-      scrollWheelZoom: true,
-      attributionControl: false,
-    })
+  const syncHeat = useCallback((list: Seabin[]) => {
+    const layer = heatLayerRef.current
+    if (!layer) return
+    layer.setLatLngs(debrisHeatPoints(list))
+  }, [])
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
-      maxZoom: 19,
-      className: 'map-tiles',
-      attribution: '© OpenStreetMap · © CARTO',
-    }).addTo(map)
+  const syncMarkers = useCallback(
+    (list: Seabin[]) => {
+      const layer = markersLayerRef.current
+      if (!layer) return
+      layer.clearLayers()
 
-    L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
-      { subdomains: 'abcd', maxZoom: 19, pane: 'shadowPane' },
-    ).addTo(map)
-
-    const heatGradient = {
-      0.15: '#14b8a6',
-      0.35: '#fde68a',
-      0.55: '#fb923c',
-      0.75: '#ef4444',
-      1.0: '#b91c1c',
-    }
-
-    const layerGroup = L.layerGroup().addTo(map)
-
-    // Seed initial heat data from seabins
-    const initialData: [number, number, number][] = seabins.map(
-      (sb) => [sb.lat, sb.lng, Math.max(0.25, sb.debris_intensity)],
-    )
-
-    import('leaflet.heat').then(() => {
-      // @ts-expect-error leaflet.heat extends L
-      const hLayer = L.heatLayer(initialData, {
-        radius: 70,
-        blur: 45,
-        maxZoom: 17,
-        minOpacity: 0.35,
-        gradient: heatGradient,
-      }).addTo(map)
-
-      heatRef.current = { layer: hLayer, data: [...initialData] }
-
-      // ── Spawn a new hotspot every 6 s ──────────────────────────────────
-      const hotspotTimer = window.setInterval(() => {
-        if (!heatRef.current) return
-        const newPt = randInBounds()
-        const newData = [...heatRef.current.data, newPt]
-        // keep max 30 points so the map doesn't get overloaded
-        const trimmed: [number, number, number][] = newData.slice(-30)
-        heatRef.current.data = trimmed
-        // @ts-expect-error setLatLngs is the leaflet.heat API
-        heatRef.current.layer.setLatLngs(trimmed)
-
-        // Brief flash ring at the new point
-        const ring = L.circleMarker([newPt[0], newPt[1]], {
-          radius: 6,
-          color: '#ef4444',
-          weight: 2,
-          fillColor: '#ef444430',
-          fillOpacity: 0.5,
-          className: 'hotspot-ring',
-        }).addTo(map)
-        // remove after animation
-        setTimeout(() => map.removeLayer(ring), 2000)
-      }, 6000)
-
-      // cleanup timer on unmount
-      map.once('remove', () => window.clearInterval(hotspotTimer))
-    })
-
-    // ── Seabin markers ────────────────────────────────────────────────────
-    seabins.forEach((sb) => {
-      const color = statusColor[sb.status]
-      const haloColor = sb.contamination_risk === 'critical' ? '#dc2626' : color
-      const icon = L.divIcon({
-        className: 'seabin-marker',
-        html: `<div class="seabin-marker-dot" style="
+      list.forEach((sb) => {
+        const color = statusColor[sb.status]
+        const haloColor = sb.contamination_risk === 'critical' ? '#dc2626' : color
+        const icon = L.divIcon({
+          className: 'seabin-marker',
+          html: `<div class="seabin-marker-dot" style="
           --marker-color:${color};
           width:18px;height:18px;border-radius:50%;
           background:${color};
@@ -150,14 +100,14 @@ export default function SeabinMap({ seabins }: Props) {
               : ''
           }
         </div>`,
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
-      })
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        })
 
-      const marker = L.marker([sb.lat, sb.lng], { icon })
-        .addTo(layerGroup)
-        .bindTooltip(
-          `<div style="font-size:12px;line-height:1.6;min-width:180px;font-family:inherit;">
+        const marker = L.marker([sb.lat, sb.lng], { icon })
+          .addTo(layer)
+          .bindTooltip(
+            `<div style="font-size:12px;line-height:1.6;min-width:200px;font-family:inherit;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;">
               <strong style="color:#0f172a;font-size:13px;">${sb.name}</strong>
               <span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">${sb.area}</span>
@@ -166,32 +116,87 @@ export default function SeabinMap({ seabins }: Props) {
               <span style="padding:1px 8px;border-radius:999px;background:${color}15;color:${color};font-weight:600;font-size:11px;">${sb.status}</span>
               <span style="padding:1px 8px;border-radius:999px;background:${riskColor[sb.contamination_risk]}15;color:${riskColor[sb.contamination_risk]};font-weight:600;font-size:11px;">${sb.contamination_risk} risk</span>
             </div>
-            <div style="color:#475569;">Capacity <strong style="color:#0f172a;">${sb.capacity}%</strong> · pH <strong style="color:#0f172a;">${sb.ph.toFixed(1)}</strong></div>
+            <div style="color:#475569;">Debris intensity <strong style="color:#0f172a;">${(sb.debris_intensity * 100).toFixed(0)}%</strong> · Capacity <strong style="color:#0f172a;">${sb.capacity}%</strong></div>
           </div>`,
-          { direction: 'top', offset: [0, -12], className: 'seabin-tooltip' },
-        )
+            {
+              direction: 'top',
+              offset: [0, -12],
+              className: 'seabin-tooltip',
+            },
+          )
 
-      marker.on('click', () => navigate(`/seabin/${sb.id}`))
+        marker.on('click', () => navigate(`/seabin/${sb.id}`))
 
-      marker.on('mouseover', () => {
-        const el = marker.getElement()
-        if (!el) return
-        const dot = el.querySelector('.seabin-marker-dot') as HTMLElement | null
-        if (dot) {
-          dot.style.transform = 'scale(1.35)'
-          dot.style.boxShadow = `0 0 0 3px ${haloColor}44, 0 6px 18px ${haloColor}66`
-        }
+        marker.on('mouseover', () => {
+          const el = marker.getElement()
+          if (!el) return
+          const dot = el.querySelector('.seabin-marker-dot') as HTMLElement | null
+          if (dot) {
+            dot.style.transform = 'scale(1.35)'
+            dot.style.boxShadow = `0 0 0 3px ${haloColor}44, 0 6px 18px ${haloColor}66`
+          }
+        })
+
+        marker.on('mouseout', () => {
+          const el = marker.getElement()
+          if (!el) return
+          const dot = el.querySelector('.seabin-marker-dot') as HTMLElement | null
+          if (dot) {
+            dot.style.transform = 'scale(1)'
+            dot.style.boxShadow = `0 0 0 2px ${haloColor}33, 0 4px 12px ${haloColor}55`
+          }
+        })
       })
+    },
+    [navigate],
+  )
 
-      marker.on('mouseout', () => {
-        const el = marker.getElement()
-        if (!el) return
-        const dot = el.querySelector('.seabin-marker-dot') as HTMLElement | null
-        if (dot) {
-          dot.style.transform = 'scale(1)'
-          dot.style.boxShadow = `0 0 0 2px ${haloColor}33, 0 4px 12px ${haloColor}55`
-        }
-      })
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return
+
+    const map = L.map(containerRef.current, {
+      center: [3.0089, 101.3928],
+      zoom: 12,
+      zoomControl: true,
+      scrollWheelZoom: true,
+      attributionControl: false,
+    })
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19,
+      className: 'map-tiles',
+      attribution: '© OpenStreetMap · © CARTO',
+    }).addTo(map)
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19,
+      pane: 'shadowPane',
+    }).addTo(map)
+
+    const heatGradient = {
+      0.15: '#14b8a6',
+      0.35: '#fde68a',
+      0.55: '#fb923c',
+      0.75: '#ef4444',
+      1.0: '#b91c1c',
+    }
+
+    const markersLayer = L.layerGroup().addTo(map)
+    markersLayerRef.current = markersLayer
+
+    import('leaflet.heat').then(() => {
+      const initial = debrisHeatPoints(seabinsRef.current)
+      // @ts-expect-error leaflet.heat extends L
+      const hLayer = L.heatLayer(initial, {
+        radius: 72,
+        blur: 46,
+        maxZoom: 17,
+        minOpacity: 0.32,
+        gradient: heatGradient,
+      }).addTo(map)
+      heatLayerRef.current = hLayer
     })
 
     mapRef.current = map
@@ -199,10 +204,16 @@ export default function SeabinMap({ seabins }: Props) {
     return () => {
       map.remove()
       mapRef.current = null
-      heatRef.current = null
+      markersLayerRef.current = null
+      heatLayerRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!markersLayerRef.current) return
+    syncMarkers(seabins)
+    syncHeat(seabins)
+  }, [seabins, syncMarkers, syncHeat])
 
   return <div ref={containerRef} className="h-full w-full" />
 }
