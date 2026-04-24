@@ -31,6 +31,8 @@ type Scenario = 'default' | 'ph_deadfish' | 'fish_haven' | 'heavy_pollution'
 interface Props {
   seabinId: string
   scenario?: Scenario
+  /** When true, skip the outer card wrapper — the parent provides the container */
+  bare?: boolean
 }
 
 const debrisTypes = [
@@ -40,7 +42,7 @@ const debrisTypes = [
   { type: 'Fishing Net', color: '#66bb6a', shape: 'rect' as const, w: 70, h: 30 },
 ]
 
-export default function SimulatedStream({ seabinId, scenario = 'default' }: Props) {
+export default function SimulatedStream({ seabinId, scenario = 'default', bare = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef = useRef<number>(0)
   const debrisRef = useRef<Debris[]>([])
@@ -427,7 +429,8 @@ export default function SimulatedStream({ seabinId, scenario = 'default' }: Prop
         if (frame % 300 === 0 && fishRef.current.filter(f => !f.alive).length < 4) spawnFish(false)
       } else if (scenario === 'ph_deadfish') {
         if (frame % 200 === 0 && fishRef.current.length < 4) {
-          Math.random() > 0.4 ? spawnFish(true) : spawnFish(false)
+          if (Math.random() > 0.4) spawnFish(true)
+          else spawnFish(false)
         }
       } else {
         if (frame % 180 === 0 && fishRef.current.length < 5) spawnFish(true)
@@ -516,6 +519,28 @@ export default function SimulatedStream({ seabinId, scenario = 'default' }: Prop
     ? 'bg-orange-50 text-orange-500 border-orange-200'
     : 'bg-teal-50 text-teal-600 border-teal-200'
 
+  const canvas = (
+    <div className="relative w-full aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+      <canvas ref={canvasRef} className="w-full h-full object-contain rounded-lg" />
+      {/* Phase pill overlaid on canvas when bare */}
+      {bare && (
+        <div className="absolute bottom-2 left-2 flex items-center gap-2">
+          <span className={`text-xs px-2 py-0.5 rounded-full border ${phaseStyle}`}>
+            {phaseLabel}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+
+  if (bare) {
+    return (
+      <div className="flex flex-col h-full gap-0">
+        {canvas}
+      </div>
+    )
+  }
+
   return (
     <div className="bg-white border border-teal-200 rounded-xl p-5 shadow-sm flex flex-col gap-3 h-full">
       <div className="flex items-center justify-between">
@@ -533,8 +558,8 @@ export default function SimulatedStream({ seabinId, scenario = 'default' }: Prop
           </span>
         </div>
       </div>
-      <div className="relative w-full flex-1 min-h-[200px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-        <canvas ref={canvasRef} className="w-full h-full object-cover rounded-lg" />
+      <div className="relative w-full aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+        <canvas ref={canvasRef} className="w-full h-full object-contain rounded-lg" />
       </div>
     </div>
   )

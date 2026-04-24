@@ -8,21 +8,25 @@ body {
 }
 
 .leaflet-container {
-  background: #cce8f0;
-  border-radius: 0.75rem;
+  background: #eaf3f5;
+  font-family: inherit;
 }
 
+/* Tame CartoDB label brightness so pulsing markers and heat dominate */
+.map-tiles {
+  filter: saturate(0.9) brightness(1.02);
+}
 
 .seabin-tooltip {
-  background: white;
-  border: 1px solid #99f6e4;
-  border-radius: 8px;
-  padding: 8px 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 118, 110, 0.18) !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+  box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.25) !important;
 }
 
 .seabin-tooltip::before {
-  border-top-color: #99f6e4;
+  border-top-color: rgba(15, 118, 110, 0.18) !important;
 }
 
 
