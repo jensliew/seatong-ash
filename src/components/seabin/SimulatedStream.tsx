@@ -520,8 +520,8 @@ export default function SimulatedStream({ seabinId, scenario = 'default', bare =
     : 'bg-teal-50 text-teal-600 border-teal-200'
 
   const canvas = (
-    <div className="relative w-full flex-1 min-h-[200px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-      <canvas ref={canvasRef} className="w-full h-full object-cover rounded-lg" />
+    <div className="relative w-full aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+      <canvas ref={canvasRef} className="w-full h-full object-contain rounded-lg" />
       {/* Phase pill overlaid on canvas when bare */}
       {bare && (
         <div className="absolute bottom-2 left-2 flex items-center gap-2">
@@ -558,8 +558,8 @@ export default function SimulatedStream({ seabinId, scenario = 'default', bare =
           </span>
         </div>
       </div>
-      <div className="relative w-full flex-1 min-h-[200px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-        <canvas ref={canvasRef} className="w-full h-full object-cover rounded-lg" />
+      <div className="relative w-full aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+        <canvas ref={canvasRef} className="w-full h-full object-contain rounded-lg" />
       </div>
     </div>
   )
