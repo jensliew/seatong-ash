@@ -41,14 +41,22 @@ def detect():
         results = model(image, conf=0.25)
         
         # Parse results
+        img_w, img_h = image.size
         detections = []
         if len(results) > 0:
             for result in results:
                 if result.boxes is not None:
                     for box in result.boxes:
+                        x1, y1, x2, y2 = box.xyxy[0].tolist()
                         obj = {
                             'category': result.names[int(box.cls)],
-                            'confidence': float(box.conf)
+                            'confidence': float(box.conf),
+                            'bbox': {
+                                'x1': x1 / img_w,
+                                'y1': y1 / img_h,
+                                'x2': x2 / img_w,
+                                'y2': y2 / img_h,
+                            }
                         }
                         detections.append(obj)
         

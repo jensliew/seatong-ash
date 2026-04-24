@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -16,11 +16,13 @@ import {
     MapPin,
     Eye,
     Brain,
+    AlertCircle,
 } from 'lucide-react';
 import { useSeabinStore } from '../store/seabinStore';
 import { aiInsights, detectionLogs } from '../data/detections';
 import SimulatedStream from '../components/seabin/SimulatedStream';
 import ImageUploadTest from '../components/seabin/ImageUploadTest';
+import type { DetectionResult } from '../components/seabin/ImageUploadTest';
 import SeabinAlerts from '../components/seabin/SeabinAlerts';
 import RiverHealthCard from '../components/dashboard/RiverHealthCard';
 import ContaminationRiskCard from '../components/dashboard/ContaminationRiskCard';
@@ -81,37 +83,21 @@ function turbidityStatus(ntu: number) {
 }
 
 /* ─── Page ───────────────────────────────────────────────────────────────── */
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, WifiOff, AlertCircle } from 'lucide-react'
-import { useSeabinStore } from '../store/seabinStore'
-import { aiInsights, detectionLogs } from '../data/detections'
-import SimulatedStream from '../components/seabin/SimulatedStream'
-import ImageUploadTest from '../components/seabin/ImageUploadTest'
-import SystemStatusCard from '../components/seabin/SystemStatusCard'
-import QuickStats from '../components/seabin/QuickStats'
-import SeabinAlerts from '../components/seabin/SeabinAlerts'
-import RiverHealthCard from '../components/dashboard/RiverHealthCard'
-import ContaminationRiskCard from '../components/dashboard/ContaminationRiskCard'
-import AccuracyMetrics from '../components/insights/AccuracyMetrics'
-import DetectionLogTable from '../components/insights/DetectionLogTable'
-import PredictionPanel from '../components/insights/PredictionPanel'
-
 export default function SeabinDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const seabins = useSeabinStore((s) => s.seabins);
     const toggleStatus = useSeabinStore((s) => s.toggleStatus);
+    const setStatus = useSeabinStore((s) => s.setStatus);
+    const incrementDeadFishCount = useSeabinStore((s) => s.incrementDeadFishCount);
+    const updateDebrisIntensity = useSeabinStore((s) => s.updateDebrisIntensity);
     const seabin = seabins.find((sb) => sb.id === id);
     const [, setUploadDone] = useState(false);
     const [viewTab, setViewTab] = useState<'3d' | 'stream'>('3d');
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const seabins = useSeabinStore((s) => s.seabins)
-  const setStatus = useSeabinStore((s) => s.setStatus)
-  const seabin = seabins.find((sb) => sb.id === id)
-  const [, setUploadDone] = useState(false)
-  const [fishAlert, setFishAlert] = useState<string | null>(null)
+    const [fishAlert, setFishAlert] = useState<string | null>(null);
+    // Live AI detection results for SB-002
+    const [liveDetections, setLiveDetections] = useState<DetectionResult[]>([])
+    const liveRunCountRef = useRef(0)
 
     if (!seabin) {
         return (
@@ -128,51 +114,62 @@ export default function SeabinDetail() {
     const isInactive = seabin.status === 'inactive';
     const insight = aiInsights.find((i) => i.seabin_id === seabin.id);
     const logs = detectionLogs.filter((l) => l.seabin_id === seabin.id);
+
+    // For SB-002, merge live detections into logs
+    const liveLogs = liveDetections.map((d, i) => ({
+        id: `LIVE-${liveRunCountRef.current}-${i}`,
+        seabin_id: seabin.id,
+        timestamp: new Date().toISOString(),
+        category: d.category as any,
+        confidence: d.confidence / 100,
+        count: d.count,
+    }))
+    const displayLogs = isTestSeabin ? [...liveLogs, ...logs] : logs
+
+    // For SB-002, compute live accuracy if we have detections
+    const liveAccuracy = liveDetections.length > 0
+        ? liveDetections.reduce((sum, d) => sum + d.confidence, 0) / liveDetections.length
+        : null
+    const displayInsight = isTestSeabin && liveAccuracy !== null
+        ? {
+            ...insight!,
+            accuracy: parseFloat(liveAccuracy.toFixed(1)),
+            total_detections: (insight?.total_detections ?? 0) + liveDetections.length,
+        }
+        : insight
+
     const scenario = streamScenarioForSeabin(seabin);
     const scenarioMeta = SCENARIO_META[scenario];
     const statusCfg = STATUS_CFG[seabin.status];
     const riskCfg = RISK_CFG[seabin.contamination_risk];
     const phCfg = phStatus(seabin.ph);
     const turbCfg = turbidityStatus(seabin.turbidity);
-  const isTestSeabin = seabin.id === 'SB-002'
-  const isInactive = seabin.status === 'inactive'
-  const insight = aiInsights.find((i) => i.seabin_id === seabin.id)
-  const logs = detectionLogs.filter((l) => l.seabin_id === seabin.id)
 
-  const handleDeadFishDetected = (count: number) => {
-    console.log('🚨 Dead fish detected:', count)
-    setStatus(seabin.id, 'paused')
-    console.log('✅ Status set to paused')
-    setFishAlert(`⚠️ Dead fish detected! System ${seabin.id} has been PAUSED for safety.`)
-    setTimeout(() => setFishAlert(null), 5000)
-  }
+    const handleDeadFishDetected = (count: number) => {
+        console.log('🚨 handleDeadFishDetected called with count:', count)
+        setStatus(seabin.id, 'paused')
+        incrementDeadFishCount(seabin.id, count)
+        setFishAlert(`⚠️ Dead fish detected! System ${seabin.id} has been PAUSED for safety.`)
+        setTimeout(() => setFishAlert(null), 5000)
+    };
 
-  const handleNoFishDetected = () => {
-    console.log('✅ No fish detected - resuming system')
-    setStatus(seabin.id, 'active')
-    setFishAlert(null)
-  }
+    const handleFishDetected = (count: number) => {
+        console.log('🐠 handleFishDetected called with count:', count)
+        setStatus(seabin.id, 'paused')
+        setFishAlert(`⚠️ Fish detected! System ${seabin.id} has been PAUSED for safety.`)
+        setTimeout(() => setFishAlert(null), 5000)
+    };
 
-  // Map seabin to stream scenario based on alerts
-  const scenarioMap: Record<string, 'default' | 'ph_deadfish' | 'fish_haven' | 'heavy_pollution'> = {
-    'SB-001': 'ph_deadfish',     // pH sensor anomaly + dead fish nearby
-    'SB-003': 'fish_haven',      // High fish population, auto-paused
-    'SB-004': 'heavy_pollution', // Overflow, dead fish critical, pH drop, high turbidity
-  }
-  const scenario = scenarioMap[seabin.id] || 'default'
+    const handleNoFishDetected = () => {
+        setStatus(seabin.id, 'active');
+        setFishAlert(null);
+    };
 
-  const handleDeadFishDetected = (count: number) => {
-  console.log('🚨 Dead fish detected:', count)
-  setStatus(seabin.id, 'paused')
-  setFishAlert(`⚠️ Dead fish detected! System ${seabin.id} has been PAUSED for safety.`)
-  setTimeout(() => setFishAlert(null), 5000)
-}
-
-const handleNoFishDetected = () => {
-  console.log('✅ No fish detected - resuming system')
-  setStatus(seabin.id, 'active')
-  setFishAlert(null)
-}
+    const handleDetectionComplete = (results: DetectionResult[]) => {
+        liveRunCountRef.current += 1
+        setLiveDetections(results)
+        setUploadDone(true)
+    };
 
     return (
         <div className='flex flex-col gap-4 p-4 md:p-6'>
@@ -222,6 +219,18 @@ const handleNoFishDetected = () => {
                         <div className='mt-0.5 text-xs text-slate-400'>
                             No live stream, AI detection, or debris collection is active.
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Fish Alert Banner ─────────────────────────────────────── */}
+            {fishAlert && (
+                <div className="flex items-center gap-3 rounded-xl border border-red-300 bg-red-50 p-4">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
+                        <AlertCircle size={18} className="text-red-600" />
+                    </div>
+                    <div className="flex-1">
+                        <div className="text-sm font-semibold text-red-700">{fishAlert}</div>
                     </div>
                 </div>
             )}
@@ -287,17 +296,23 @@ const handleNoFishDetected = () => {
                     </div>
                 </div>
 
-                {/* Viewer — fixed height */}
-                <div style={{ height: 540 }} className='relative'>
+                {/* Viewer — flexible height */}
+                <div className='relative min-h-[400px]'>
                     {isInactive ? (
                         <div className='absolute inset-0 flex flex-col items-center justify-center gap-3 text-center'>
                             <WifiOff size={40} className='text-slate-300' />
                             <div className='text-sm font-semibold text-slate-400'>Stream unavailable</div>
                             <div className='text-xs text-slate-300'>Seabin is offline</div>
                         </div>
-                    ) : isTestSeabin ? (
-                        <div className='absolute inset-0 p-4'>
-                            <ImageUploadTest onDetectionComplete={() => setUploadDone(true)} />
+                    ) : isTestSeabin && viewTab === 'stream' ? (
+                        <div className='p-4'>
+                            <ImageUploadTest
+                                seabinId={seabin.id}
+                                onDeadFishDetected={handleDeadFishDetected}
+                                onFishDetected={handleFishDetected}
+                                onNoFishDetected={handleNoFishDetected}
+                                onDetectionComplete={handleDetectionComplete}
+                            />
                         </div>
                     ) : viewTab === '3d' ? (
                         <Suspense
@@ -318,7 +333,7 @@ const handleNoFishDetected = () => {
                     )}
                 </div>
 
-                {/* 3D legend — only shown when 3D tab is active */}
+                {/* Legend — shown based on context */}
                 {!isInactive && viewTab === '3d' && (
                     <div className='border-t border-slate-100 bg-slate-50/60 px-4 py-3'>
                         <div className='flex flex-wrap items-center gap-x-5 gap-y-2'>
@@ -334,6 +349,23 @@ const handleNoFishDetected = () => {
                                 <Eye size={11} />
                                 Use the button at the bottom of the model to toggle cutaway view
                             </span>
+                        </div>
+                    </div>
+                )}
+
+                {/* AI Detection Legend — shown for test seabin on AI Stream tab */}
+                {!isInactive && isTestSeabin && viewTab === 'stream' && (
+                    <div className='border-t border-slate-100 bg-slate-50/60 px-4 py-3'>
+                        <div className='flex flex-wrap items-center gap-x-5 gap-y-2'>
+                            <span className='text-[0.65rem] font-semibold uppercase tracking-wider text-slate-400'>
+                                Detection Legend
+                            </span>
+                            <LegendItem color='#3b82f6' label='Plastic Bottle' />
+                            <LegendItem color='#8b5cf6' label='Plastic Bag' />
+                            <LegendItem color='#f59e0b' label='Fishing Net' />
+                            <LegendItem color='#10b981' label='Aluminium Can' />
+                            <LegendItem color='#06b6d4' label='Fish' />
+                            <LegendItem color='#ef4444' label='Dead Fish' />
                         </div>
                     </div>
                 )}
@@ -406,46 +438,6 @@ const handleNoFishDetected = () => {
                     }
                 />
             </div>
-      {/* Row 1: Stream + Quick Stats + System Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">
-        <div className="lg:col-span-3 flex">
-          {isInactive ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm w-full flex flex-col">
-              <div className="text-sm text-slate-400 mb-3">Live Stream</div>
-              <div className="flex-1 bg-slate-50 rounded-lg border border-slate-200 flex flex-col items-center justify-center gap-2">
-                <WifiOff size={32} className="text-slate-300" />
-                <div className="text-sm text-slate-400">Stream unavailable</div>
-                <div className="text-xs text-slate-300">Seabin is offline</div>
-              </div>
-            </div>
-          ) : isTestSeabin ? (
-            <div className="w-full">
-              {fishAlert && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
-                  <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-red-700 font-medium">{fishAlert}</div>
-                </div>
-              )}
-              <ImageUploadTest 
-                seabinId={seabin.id}
-                onDeadFishDetected={handleDeadFishDetected}
-                onNoFishDetected={handleNoFishDetected}
-                onDetectionComplete={() => setUploadDone(true)} 
-              />
-            </div>
-          ) : (
-            <div className="w-full">
-              <SimulatedStream seabinId={seabin.id} scenario={scenario} />
-            </div>
-          )}
-        </div>
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          <SystemStatusCard seabin={seabin} />
-          <div className="flex-1">
-            <QuickStats seabin={seabin} />
-          </div>
-        </div>
-      </div>
 
             {/* ── Alerts ────────────────────────────────────────────────── */}
             <SeabinAlerts seabinId={seabin.id} />
@@ -460,8 +452,8 @@ const handleNoFishDetected = () => {
             {/* ── Collection rate ───────────────────────────────────────── */}
             <CollectionRateAreaChart
                 seabinId={seabin.id}
-                logs={logs}
-                totalDetectionsHint={insight?.total_detections ?? 0}
+                logs={displayLogs}
+                totalDetectionsHint={displayInsight?.total_detections ?? 0}
             />
 
             {/* ── Contamination risk + River health ─────────────────────── */}
@@ -471,7 +463,7 @@ const handleNoFishDetected = () => {
             </div>
 
             {/* ── AI Insights ───────────────────────────────────────────── */}
-            {insight && (
+            {displayInsight && (
                 <>
                     <div className='flex items-center gap-3 border-t border-slate-200 pt-4'>
                         <div className='flex h-8 w-8 items-center justify-center rounded-full bg-teal-50'>
@@ -480,15 +472,15 @@ const handleNoFishDetected = () => {
                         <div>
                             <h2 className='text-base font-bold text-slate-800'>AI Insights</h2>
                             <p className='text-xs text-slate-400'>
-                                {isTestSeabin ? 'Results from AI vision model test' : 'Model performance & predictions for this unit'}
+                                {isTestSeabin ? 'Live results from AI vision model test' : 'Model performance & predictions for this unit'}
                             </p>
                         </div>
                     </div>
                     <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
-                        <AccuracyMetrics insight={insight} />
-                        <PredictionPanel predictions={insight.predictions} />
+                        <AccuracyMetrics insight={displayInsight} />
+                        <PredictionPanel predictions={displayInsight.predictions} />
                     </div>
-                    <DetectionLogTable logs={logs} />
+                    <DetectionLogTable logs={displayLogs} />
                 </>
             )}
         </div>
