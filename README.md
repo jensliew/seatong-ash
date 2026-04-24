@@ -6,53 +6,49 @@ An intelligent monitoring dashboard for SeaBin devices deployed in Port Klang, M
 
 - **Node.js** v18 or above
 - **npm** v9 or above
-- **Python** 3.8 or above
-- **pip** (Python package manager)
+- **Python** 3.8 or above (for AI backend)
 
 ## Getting Started
 
-Frontend + Backend (AI Detection)
-
-#### Terminal 1 — Start Backend (Flask + YOLO)
+### Terminal 1 — Start Backend (Flask + YOLO)
 
 ```bash
-# 1. Navigate to backend directory
-cd backend
+cd seabin-dashboard/backend
 
-# 2. Install Python dependencies
+# macOS
+pip3 install -r requirements.txt
+python3 app.py
+
+# Windows
 pip install -r requirements.txt
-
-# 3. Start Flask server
 python app.py
 
-# Server will run on http://localhost:5000
-# You should see: "Model loaded successfully" and "Running on http://127.0.0.1:5000"
+# Server runs on http://localhost:5001
+# You should see: "Model loaded successfully"
 ```
 
-#### Terminal 2 — Start Frontend (React + Vite)
+> **macOS note:** Port 5000 is used by AirPlay Receiver. The backend runs on port **5001** instead. If you still get a port conflict, disable AirPlay Receiver in System Settings → General → AirDrop & Handoff.
+
+### Terminal 2 — Start Frontend (React + Vite)
 
 ```bash
-# 1. From project root, install dependencies (if not already done)
-npm install
+cd seabin-dashboard
 
-# 2. Start development server
+# macOS / Windows
+npm install
 npm run dev
 
-# 3. Open in browser
-# http://localhost:5173
+# Open http://localhost:5173
 ```
 
-#### Testing AI Detection
+The frontend proxies `/api/*` requests to the backend via Vite config — no CORS issues.
+
+### Testing AI Detection
 
 1. Navigate to **SB-002** (AI Test Mode seabin)
 2. Click on **AI Stream** tab
-3. Upload an image from `demo_image/demo_image/` folder:
-   - `aluminiumcan.JPG`
-   - `fishes.jpg`
-   - `fishingnet.jpg`
-   - `plasticbag&bottle.jpg`
-   - `plasticbags.jpg`
-4. The AI model will detect objects and draw bounding boxes on the image
+3. Upload an image from `demo_image/demo_image/` folder
+4. The AI model detects objects and draws bounding boxes
 5. Detection results appear in the table below
 6. If fish is detected, the system pauses and shows an alert
 
@@ -76,9 +72,10 @@ npm run preview
 | State | Zustand |
 | Map | Leaflet + leaflet.heat |
 | Charts | Recharts |
+| 3D | Three.js (React Three Fiber) |
 | Icons | Lucide React |
 
-### Backend (Optional)
+### Backend
 | Component | Tool |
 |---|---|
 | Language | Python 3.8+ |
@@ -86,38 +83,56 @@ npm run preview
 | AI Model | YOLOv8 (Ultralytics) |
 | CORS | Flask-CORS |
 | Image Processing | Pillow |
-| GPU Support | PyTorch (CUDA optional) |
+| GPU Support | PyTorch (CUDA optional, falls back to CPU) |
 
 ## System Architecture
 
 ```
-src/
-├── pages/              # Route-level pages
-│   ├── Dashboard       # Overview: map, health score, risk chart, detection table
-│   ├── SeabinDetail    # Per-seabin: live stream, system status, quick stats, alerts, AI insights
-│   ├── Alerts          # All alerts grouped by seabin equipment / river condition
-│   └── Contact         # Partnership & sponsorship inquiry form
+seabin-dashboard/
+├── backend/
+│   ├── app.py              # Flask API server (port 5001)
+│   ├── best.pt             # YOLOv8 trained model
+│   └── requirements.txt    # Python dependencies
 │
-├── components/
-│   ├── map/            # Leaflet heatmap with seabin markers
-│   ├── dashboard/      # Stat cards, contamination chart, debris table
-│   ├── seabin/         # Live stream, system status, quick stats, alerts, image upload (AI test)
-│   ├── insights/       # Accuracy metrics, detection log, predictions
-│   └── alerts/         # Alert groups by type
+├── src/
+│   ├── pages/
+│   │   ├── Dashboard       # Overview: map, stats, risk chart, live feed, detection table
+│   │   ├── Fleet           # Fleet overview of all seabins
+│   │   ├── SeabinDetail    # Per-seabin: 3D model, AI stream, status, alerts, insights
+│   │   ├── Alerts          # All alerts grouped by seabin equipment / river condition
+│   │   ├── WaterQuality    # Water quality monitoring data
+│   │   ├── PlasticCredits  # Plastic credit tracking & impact
+│   │   └── Contact         # Partnership & sponsorship inquiry form
+│   │
+│   ├── components/
+│   │   ├── map/            # Leaflet heatmap with seabin markers
+│   │   ├── dashboard/      # Stat cards, contamination chart, live feed, debris table, impact row
+│   │   ├── fleet/          # Fleet header, seabin cards
+│   │   ├── seabin/         # 3D model, AI stream, system status, capacity gauge, alerts, image upload
+│   │   ├── insights/       # Accuracy metrics, detection log, predictions, collection rate chart
+│   │   └── alerts/         # Alert config, alert list items
+│   │
+│   ├── layouts/            # Sidebar + main content wrapper
+│   ├── store/              # Zustand global state
+│   ├── hooks/              # Custom hooks (live counter)
+│   ├── lib/                # Utilities (series generation, stream scenario mapping)
+│   ├── data/               # Mock data (seabins, alerts, detections, impact, partners)
+│   ├── types/              # Shared TypeScript interfaces
+│   └── assets/             # Brand logos
 │
-├── layouts/            # Sidebar + main content wrapper
-├── store/              # Zustand global state
-├── data/               # Mock data (seabins, alerts, detections)
-└── types/              # Shared TypeScript interfaces
+└── vite.config.ts          # Vite config with API proxy to backend
 ```
 
 ## Pages
 
 | Route | Description |
 |---|---|
-| `/` | Dashboard — heatmap, river health, contamination risk by area, dead fish count, detection table |
-| `/seabin/:id` | Seabin detail — live stream (simulated AI vision), system status, quick stats, alerts, AI insights |
+| `/` | Dashboard — heatmap, river health, contamination risk by area, live feed, detection table |
+| `/fleet` | Fleet — overview of all seabin units |
+| `/seabin/:id` | Seabin detail — 3D model, AI stream, system status, capacity, alerts, AI insights |
 | `/alerts` | Alert list — grouped by seabin equipment alerts and river condition alerts |
+| `/water-quality` | Water quality — monitoring data from probe sensors |
+| `/plastic-credits` | Plastic credits — tracking collection impact |
 | `/contact` | Contact form — partnership, sponsorship, general inquiries |
 
 ## Seabin Scenarios
@@ -147,34 +162,35 @@ Each seabin has a unique simulated live stream matching its alert profile:
 
 **River Condition:** High fish population, dead fish detected, high turbidity, pH anomaly
 
-## Notes
-
-- **Frontend**: Runs entirely in the browser with mock data by default
-- **Backend**: Optional Flask server for real AI vision detection via YOLO
-- **API Endpoint**: Frontend calls `http://localhost:5000/api/detect` when backend is running
-- **Mock Data**: Structured for easy API replacement when backend is available
-- **Map**: Uses OpenStreetMap (free, no API key needed)
-- **AI Model**: YOLOv8 model (`best.pt`) is loaded on backend startup
-- **GPU**: Backend will use CUDA if available, falls back to CPU
-
 ## Troubleshooting
 
+### macOS: Port 5000 conflict
+Port 5000 is used by AirPlay Receiver on macOS. The backend uses port **5001** to avoid this. If you still have issues:
+- System Settings → General → AirDrop & Handoff → disable "AirPlay Receiver"
+- Or change the port in `backend/app.py` and `vite.config.ts`
+
+### macOS: `pip` not found
+Use `pip3` instead of `pip`, and `python3` instead of `python`.
+
 ### Backend won't start
-- Ensure Python 3.8+ is installed: `python --version`
-- Install dependencies: `pip install -r backend/requirements.txt`
-- Check if port 5000 is available: `netstat -an | grep 5000`
+- Ensure Python 3.8+ is installed: `python3 --version`
+- Install dependencies: `pip3 install -r backend/requirements.txt`
+- Verify `backend/best.pt` model file exists
 
 ### Frontend can't reach backend
-- Verify backend is running on `http://localhost:5000`
-- Check browser console for CORS errors
-- Ensure both are running on the correct ports
+- Verify backend is running on `http://localhost:5001`
+- Restart the Vite dev server after any `vite.config.ts` changes
+- The Vite proxy handles CORS — no need for browser extensions
 
 ### AI detection not working
-- Check backend console for model loading errors
-- Verify `backend/best.pt` model file exists
-- Try uploading a different image format (JPG, PNG)
+- Check backend terminal for model loading errors
+- Verify `backend/best.pt` exists
+- Try a different image format (JPG, PNG)
 
-### Port conflicts
-- Frontend default: `http://localhost:5173`
-- Backend default: `http://localhost:5000`
-- Change ports in `vite.config.ts` or `backend/app.py` if needed
+## Notes
+
+- Frontend runs with mock data by default — backend only needed for real AI detection (SB-002)
+- Vite proxies `/api/*` to the backend — no CORS configuration needed
+- Map uses OpenStreetMap (free, no API key needed)
+- Backend uses CUDA if available, falls back to CPU
+- Splash screen shows on app load with SeaTong branding

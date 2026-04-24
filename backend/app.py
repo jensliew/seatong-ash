@@ -7,7 +7,7 @@ from datetime import datetime
 from ultralytics import YOLO
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Load model
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -84,4 +84,4 @@ def health():
     return jsonify({'status': 'ok', 'device': str(device)}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5001, host='0.0.0.0')
