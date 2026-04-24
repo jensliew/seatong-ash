@@ -6,20 +6,55 @@ An intelligent monitoring dashboard for SeaBin devices deployed in Port Klang, M
 
 - **Node.js** v18 or above
 - **npm** v9 or above
+- **Python** 3.8 or above
+- **pip** (Python package manager)
 
 ## Getting Started
 
+Frontend + Backend (AI Detection)
+
+#### Terminal 1 — Start Backend (Flask + YOLO)
+
 ```bash
-# 1. Install dependencies
-cd seabin-dashboard
+# 1. Navigate to backend directory
+cd backend
+
+# 2. Install Python dependencies
+pip install -r requirements.txt
+
+# 3. Start Flask server
+python app.py
+
+# Server will run on http://localhost:5000
+# You should see: "Model loaded successfully" and "Running on http://127.0.0.1:5000"
+```
+
+#### Terminal 2 — Start Frontend (React + Vite)
+
+```bash
+# 1. From project root, install dependencies (if not already done)
 npm install
 
 # 2. Start development server
 npm run dev
 
 # 3. Open in browser
-# http://localhost:5173 (or the port shown in terminal)
+# http://localhost:5173
 ```
+
+#### Testing AI Detection
+
+1. Navigate to **SB-002** (AI Test Mode seabin)
+2. Click on **AI Stream** tab
+3. Upload an image from `demo_image/demo_image/` folder:
+   - `aluminiumcan.JPG`
+   - `fishes.jpg`
+   - `fishingnet.jpg`
+   - `plasticbag&bottle.jpg`
+   - `plasticbags.jpg`
+4. The AI model will detect objects and draw bounding boxes on the image
+5. Detection results appear in the table below
+6. If fish is detected, the system pauses and shows an alert
 
 ## Build for Production
 
@@ -30,6 +65,7 @@ npm run preview
 
 ## Tech Stack
 
+### Frontend
 | Layer | Tool |
 |---|---|
 | Language | TypeScript |
@@ -41,6 +77,16 @@ npm run preview
 | Map | Leaflet + leaflet.heat |
 | Charts | Recharts |
 | Icons | Lucide React |
+
+### Backend (Optional)
+| Component | Tool |
+|---|---|
+| Language | Python 3.8+ |
+| Framework | Flask |
+| AI Model | YOLOv8 (Ultralytics) |
+| CORS | Flask-CORS |
+| Image Processing | Pillow |
+| GPU Support | PyTorch (CUDA optional) |
 
 ## System Architecture
 
@@ -103,7 +149,32 @@ Each seabin has a unique simulated live stream matching its alert profile:
 
 ## Notes
 
-- All data is mocked for prototype/demo purposes
-- Mock data layer is structured for easy API replacement
-- No backend required — runs entirely in the browser
-- Map uses OpenStreetMap (free, no API key needed)
+- **Frontend**: Runs entirely in the browser with mock data by default
+- **Backend**: Optional Flask server for real AI vision detection via YOLO
+- **API Endpoint**: Frontend calls `http://localhost:5000/api/detect` when backend is running
+- **Mock Data**: Structured for easy API replacement when backend is available
+- **Map**: Uses OpenStreetMap (free, no API key needed)
+- **AI Model**: YOLOv8 model (`best.pt`) is loaded on backend startup
+- **GPU**: Backend will use CUDA if available, falls back to CPU
+
+## Troubleshooting
+
+### Backend won't start
+- Ensure Python 3.8+ is installed: `python --version`
+- Install dependencies: `pip install -r backend/requirements.txt`
+- Check if port 5000 is available: `netstat -an | grep 5000`
+
+### Frontend can't reach backend
+- Verify backend is running on `http://localhost:5000`
+- Check browser console for CORS errors
+- Ensure both are running on the correct ports
+
+### AI detection not working
+- Check backend console for model loading errors
+- Verify `backend/best.pt` model file exists
+- Try uploading a different image format (JPG, PNG)
+
+### Port conflicts
+- Frontend default: `http://localhost:5173`
+- Backend default: `http://localhost:5000`
+- Change ports in `vite.config.ts` or `backend/app.py` if needed
