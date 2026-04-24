@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Upload, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Upload, Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react'
 
 interface DetectionResult {
   category: string
@@ -9,37 +9,80 @@ interface DetectionResult {
 
 interface Props {
   onDetectionComplete: (results: DetectionResult[], imageUrl: string) => void
+  seabinId?: string
+  onDeadFishDetected?: (count: number) => void
+  onNoFishDetected?: () => void
 }
 
-// Simulated AI detection results based on uploaded image
-const mockDetectionResults: DetectionResult[] = [
-  { category: 'Plastic Bottle', confidence: 0.96, count: 4 },
-  { category: 'Plastic Bag', confidence: 0.91, count: 2 },
-  { category: 'Aluminium Can', confidence: 0.87, count: 1 },
-  { category: 'Fishing Net', confidence: 0.83, count: 1 },
-]
-
-export default function ImageUploadTest({ onDetectionComplete }: Props) {
+export default function ImageUploadTest({ onDetectionComplete, seabinId, onDeadFishDetected, onNoFishDetected }: Props) {
   const [preview, setPreview] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isDone, setIsDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [detectionResults, setDetectionResults] = useState<DetectionResult[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  console.log('ImageUploadTest props:', { onDetectionComplete, seabinId, onDeadFishDetected })
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     const url = URL.createObjectURL(file)
     setPreview(url)
     setIsDone(false)
-
-    // Simulate AI processing delay
+    setError(null)
     setIsProcessing(true)
-    setTimeout(() => {
+
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+
+      const response = await fetch('http://localhost:5000/api/detect', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Detection failed')
+      }
+
+      const data = await response.json()
+
+      // Transform API response to match DetectionResult format
+      const results: DetectionResult[] = data.detections.map((det: any) => ({
+        category: det.category,
+        confidence: parseFloat((det.confidence * 100).toFixed(2)),
+        count: 1,
+      }))
+
+      setDetectionResults(results)
       setIsProcessing(false)
       setIsDone(true)
-      onDetectionComplete(mockDetectionResults, url)
-    }, 2500)
+      onDetectionComplete(results, url)
+
+      // Check if dead fish detected and trigger alert
+      const fishDetected = results.filter(r => 
+        r.category.toLowerCase().includes('fish') || 
+        r.category.toLowerCase().includes('dead')
+      )
+      console.log('All detections:', results)
+      console.log('Fish detected:', fishDetected)
+      console.log('Callback exists:', !!onDeadFishDetected)
+      
+      if (fishDetected.length > 0 && onDeadFishDetected) {
+        console.log('Triggering dead fish alert!')
+        onDeadFishDetected(fishDetected.length)
+      } else if (fishDetected.length === 0 && onNoFishDetected) {
+        console.log('No fish detected - resuming system')
+        onNoFishDetected()
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Upload failed'
+      setError(errorMessage)
+      setIsProcessing(false)
+      setPreview(null)
+    }
   }
 
   return (
@@ -55,6 +98,13 @@ export default function ImageUploadTest({ onDetectionComplete }: Props) {
           </span>
         )}
       </div>
+
+      {error && (
+        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+          <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-red-600">{error}</div>
+        </div>
+      )}
 
       {!preview ? (
         <button
@@ -76,7 +126,7 @@ export default function ImageUploadTest({ onDetectionComplete }: Props) {
           )}
           {isDone && (
             <div className="absolute top-2 left-2 bg-teal-600 text-white text-xs px-2 py-1 rounded">
-              AI Detected — {mockDetectionResults.length} categories
+              AI Detected — {detectionResults.length} objects
             </div>
           )}
           <button
@@ -100,20 +150,26 @@ export default function ImageUploadTest({ onDetectionComplete }: Props) {
         className="hidden"
       />
 
-      {isDone && (
+      {isDone && detectionResults.length > 0 && (
         <div className="mt-4">
           <div className="text-xs text-slate-400 mb-2">Detection Results</div>
           <div className="grid grid-cols-2 gap-2">
-            {mockDetectionResults.map((r, i) => (
+            {detectionResults.map((r, i) => (
               <div key={i} className="bg-slate-50 border border-slate-100 rounded-lg p-2.5">
                 <div className="text-sm font-medium text-slate-700">{r.category}</div>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-xs text-slate-400">Count: {r.count}</span>
-                  <span className="text-xs text-teal-600 font-medium">{(r.confidence * 100).toFixed(0)}%</span>
+                  <span className="text-xs text-teal-600 font-medium">{r.confidence.toFixed(1)}%</span>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {isDone && detectionResults.length === 0 && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="text-sm text-amber-700">No objects detected in this image</div>
         </div>
       )}
     </div>

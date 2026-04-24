@@ -5,6 +5,7 @@ import type { Seabin } from '../types'
 interface SeabinStore {
   seabins: Seabin[]
   toggleStatus: (id: string) => void
+  setStatus: (id: string, status: 'active' | 'paused' | 'inactive') => void
 }
 
 export const useSeabinStore = create<SeabinStore>((set) => ({
@@ -15,6 +16,12 @@ export const useSeabinStore = create<SeabinStore>((set) => ({
         sb.id === id
           ? { ...sb, status: sb.status === 'active' ? 'paused' : 'active' }
           : sb
+      ),
+    })),
+  setStatus: (id, status) =>
+    set((state) => ({
+      seabins: state.seabins.map((sb) =>
+        sb.id === id ? { ...sb, status } : sb
       ),
     })),
 }))

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, WifiOff } from 'lucide-react'
+import { ArrowLeft, WifiOff, AlertCircle } from 'lucide-react'
 import { useSeabinStore } from '../store/seabinStore'
 import { aiInsights, detectionLogs } from '../data/detections'
 import SimulatedStream from '../components/seabin/SimulatedStream'
@@ -18,8 +18,10 @@ export default function SeabinDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const seabins = useSeabinStore((s) => s.seabins)
+  const setStatus = useSeabinStore((s) => s.setStatus)
   const seabin = seabins.find((sb) => sb.id === id)
   const [, setUploadDone] = useState(false)
+  const [fishAlert, setFishAlert] = useState<string | null>(null)
 
   if (!seabin) {
     return (
@@ -34,6 +36,20 @@ export default function SeabinDetail() {
   const isInactive = seabin.status === 'inactive'
   const insight = aiInsights.find((i) => i.seabin_id === seabin.id)
   const logs = detectionLogs.filter((l) => l.seabin_id === seabin.id)
+
+  const handleDeadFishDetected = (count: number) => {
+    console.log('🚨 Dead fish detected:', count)
+    setStatus(seabin.id, 'paused')
+    console.log('✅ Status set to paused')
+    setFishAlert(`⚠️ Dead fish detected! System ${seabin.id} has been PAUSED for safety.`)
+    setTimeout(() => setFishAlert(null), 5000)
+  }
+
+  const handleNoFishDetected = () => {
+    console.log('✅ No fish detected - resuming system')
+    setStatus(seabin.id, 'active')
+    setFishAlert(null)
+  }
 
   // Map seabin to stream scenario based on alerts
   const scenarioMap: Record<string, 'default' | 'ph_deadfish' | 'fish_haven' | 'heavy_pollution'> = {
@@ -92,7 +108,18 @@ export default function SeabinDetail() {
             </div>
           ) : isTestSeabin ? (
             <div className="w-full">
-              <ImageUploadTest onDetectionComplete={() => setUploadDone(true)} />
+              {fishAlert && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
+                  <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-red-700 font-medium">{fishAlert}</div>
+                </div>
+              )}
+              <ImageUploadTest 
+                seabinId={seabin.id}
+                onDeadFishDetected={handleDeadFishDetected}
+                onNoFishDetected={handleNoFishDetected}
+                onDetectionComplete={() => setUploadDone(true)} 
+              />
             </div>
           ) : (
             <div className="w-full">
