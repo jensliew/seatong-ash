@@ -27,19 +27,17 @@ export const impactStats: ImpactStats = {
   last_updated_iso: new Date().toISOString(),
 }
 
-export const topPlasticCategories: Array<{
+/** Rubbish types tracked in the pilot (Port Klang) */
+export const marineDebrisTypes: Array<{
   key: string
   label: string
   percent: number
   items: number
 }> = [
-  { key: 'soft_wrappers', label: 'Soft plastic wrappers', percent: 28, items: 3_480 },
-  { key: 'cigarette_butts', label: 'Cigarette butts', percent: 21, items: 2_610 },
-  { key: 'plastic_bottles', label: 'PET bottles', percent: 18, items: 2_237 },
-  { key: 'straws', label: 'Straws & stirrers', percent: 12, items: 1_492 },
-  { key: 'aluminium_cans', label: 'Aluminium cans', percent: 9, items: 1_119 },
-  { key: 'fishing_debris', label: 'Fishing debris', percent: 7, items: 870 },
-  { key: 'other', label: 'Other', percent: 5, items: 622 },
+  { key: 'plastic_bag', label: 'Plastic bag', percent: 32, items: 3_978 },
+  { key: 'plastic_bottle', label: 'Plastic bottle', percent: 28, items: 3_480 },
+  { key: 'aluminium_can', label: 'Aluminium can', percent: 22, items: 2_735 },
+  { key: 'fishing_net', label: 'Fishing net', percent: 18, items: 2_237 },
 ]
 
 export const offtakePartners: Array<{

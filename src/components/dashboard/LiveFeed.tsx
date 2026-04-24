@@ -45,7 +45,7 @@ export default function LiveFeed({ logs }: Props) {
       <header className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
         <div>
           <div className="text-sm font-semibold text-slate-800">Live detection feed</div>
-          <div className="text-[0.72rem] text-slate-500">Most recent events across the fleet</div>
+          <div className="text-[0.72rem] text-slate-500">Most recent events across all seabins</div>
         </div>
         <span className="inline-flex items-center gap-1.5 text-[0.68rem] font-medium uppercase tracking-wider text-teal-700">
           <span className="relative flex h-1.5 w-1.5">

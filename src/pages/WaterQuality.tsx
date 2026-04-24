@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Droplet, Gauge, Thermometer, Wind } from 'lucide-react';
+import { Droplet, Gauge } from 'lucide-react';
 import { useSeabinStore } from '../store/seabinStore';
 import type { Seabin } from '../types';
 
@@ -9,8 +9,6 @@ import type { Seabin } from '../types';
 type Reading = {
     ph: number;
     turbidity: number;
-    do_mgl: number;
-    temp_c: number;
 };
 
 type HistorySeries = Array<Reading & { ts: number }>;
@@ -19,12 +17,6 @@ function baseReading(sb: Seabin): Reading {
     return {
         ph: sb.ph,
         turbidity: sb.turbidity,
-        // Dissolved oxygen: healthy = 6-8 mg/L, degrades with turbidity
-        do_mgl: parseFloat(
-            Math.max(1.5, 8.2 - sb.turbidity * 0.055).toFixed(2),
-        ),
-        // Sea surface temp: Port Klang range ~28–32 °C
-        temp_c: parseFloat((29.5 + Math.random() * 2.5).toFixed(1)),
     };
 }
 
@@ -61,24 +53,6 @@ function turbidityStatus(t: number): {
         };
     return { label: 'Turbid – alert', color: 'text-red-700', bg: 'bg-red-500' };
 }
-function doStatus(d: number): { label: string; color: string; bg: string } {
-    if (d >= 6)
-        return { label: 'Good', color: 'text-teal-700', bg: 'bg-teal-500' };
-    if (d >= 3)
-        return { label: 'Low', color: 'text-amber-700', bg: 'bg-amber-500' };
-    return {
-        label: 'Hypoxic – alert',
-        color: 'text-red-700',
-        bg: 'bg-red-500',
-    };
-}
-function tempStatus(t: number): { label: string; color: string; bg: string } {
-    if (t <= 30)
-        return { label: 'Normal', color: 'text-teal-700', bg: 'bg-teal-500' };
-    if (t <= 31.5)
-        return { label: 'Warm', color: 'text-amber-700', bg: 'bg-amber-500' };
-    return { label: 'High', color: 'text-orange-700', bg: 'bg-orange-500' };
-}
 
 // ---------------------------------------------------------------------------
 // Sparkline (last 20 readings stored per seabin/metric)
@@ -98,21 +72,24 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
         })
         .join(' ');
     return (
-        <svg
-            width={w}
-            height={h}
-            viewBox={`0 0 ${w} ${h}`}
-            className='shrink-0 overflow-visible'
-        >
-            <polyline
-                points={pts}
-                fill='none'
-                stroke={color}
-                strokeWidth='1.8'
-                strokeLinejoin='round'
-                strokeLinecap='round'
-            />
-        </svg>
+        <div className="h-7 w-20 max-w-full shrink-0 overflow-hidden" aria-hidden>
+            <svg
+                width="100%"
+                height="100%"
+                viewBox={`0 0 ${w} ${h}`}
+                preserveAspectRatio="xMidYMid meet"
+                className="block h-full w-full"
+            >
+                <polyline
+                    points={pts}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                />
+            </svg>
+        </div>
     );
 }
 
@@ -145,46 +122,44 @@ function MetricTile({
         Math.max(0, ((value - range[0]) / (range[1] - range[0])) * 100),
     );
     return (
-        <div className='flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-5'>
-            <div className='flex items-center justify-between'>
-                <div className='flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500'>
+        <div className="flex min-w-0 max-w-full flex-col gap-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5">
+            <div className="flex min-w-0 items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     {icon}
-                    {label}
+                    <span className="truncate">{label}</span>
                 </div>
                 <span
-                    className={`rounded-full px-2 py-0.5 text-[0.68rem] font-medium ring-1 ring-current ${status.color}`}
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-medium ring-1 ring-current sm:text-[0.68rem] ${status.color}`}
                 >
                     {status.label}
                 </span>
             </div>
-            <div className='flex items-end justify-between gap-2'>
-                <div>
-                    <span className='text-[2.2rem] font-semibold leading-none tabular-nums tracking-tight text-slate-900'>
+            <div className="flex min-w-0 items-end justify-between gap-2">
+                <div className="min-w-0">
+                    <span className="text-[clamp(1.5rem,5vw,2.2rem)] font-semibold leading-none tabular-nums tracking-tight text-slate-900">
                         {value}
                     </span>
-                    <span className='ml-1 text-sm font-medium text-slate-500'>
-                        {unit}
-                    </span>
+                    <span className="ml-1 text-sm font-medium text-slate-500">{unit}</span>
                 </div>
                 <Sparkline values={sparkValues} color={sparkColor} />
             </div>
-            <div>
-                <div className='flex items-center justify-between text-[0.65rem] text-slate-400'>
-                    <span>
+            <div className="min-w-0">
+                <div className="grid grid-cols-3 gap-1 text-[0.6rem] text-slate-400 sm:gap-2 sm:text-[0.65rem]">
+                    <span className="tabular-nums sm:text-left">
                         {range[0]}
                         {unit}
                     </span>
-                    <span className='text-slate-500'>
+                    <span className="min-w-0 truncate text-center text-slate-500" title={normalRange}>
                         Normal: {normalRange}
                     </span>
-                    <span>
+                    <span className="tabular-nums sm:text-right">
                         {range[1]}
                         {unit}
                     </span>
                 </div>
-                <div className='mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100'>
+                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                     <div
-                        className={`h-full rounded-full transition-[width] duration-700 ${status.bg}`}
+                        className={`h-full max-w-full rounded-full transition-[width] duration-700 ${status.bg}`}
                         style={{ width: `${pct}%` }}
                     />
                 </div>
@@ -201,12 +176,12 @@ export default function WaterQuality() {
     const [selected, setSelected] = useState<string>('all');
     const [history, setHistory] = useState<Record<string, HistorySeries>>({});
 
-    // Sync series to fleet + jitter on an interval. Initial sync is deferred (microtask)
+    // Sync series from live seabin data + jitter on an interval. Initial sync is deferred (microtask)
     // so we avoid synchronous setState in the effect body (react-hooks/set-state-in-effect).
     useEffect(() => {
         let cancelled = false;
 
-        function syncFromFleet(prev: Record<string, HistorySeries>) {
+        function syncFromSeabins(prev: Record<string, HistorySeries>) {
             const next: Record<string, HistorySeries> = {};
             for (const sb of seabins) {
                 if (prev[sb.id]) {
@@ -223,14 +198,14 @@ export default function WaterQuality() {
 
         queueMicrotask(() => {
             if (!cancelled) {
-                setHistory((prev) => syncFromFleet(prev));
+                setHistory((prev) => syncFromSeabins(prev));
             }
         });
 
         const id = window.setInterval(() => {
             if (cancelled) return;
             setHistory((prev) => {
-                const next = { ...syncFromFleet(prev) };
+                const next = { ...syncFromSeabins(prev) };
                 for (const sb of seabins) {
                     const last = next[sb.id]?.at(-1) ?? baseReading(sb);
                     next[sb.id] = [
@@ -238,8 +213,6 @@ export default function WaterQuality() {
                         {
                             ph: jitter(last.ph, 0.008),
                             turbidity: jitter(last.turbidity, 0.012),
-                            do_mgl: jitter(last.do_mgl, 0.01),
-                            temp_c: jitter(last.temp_c, 0.005),
                             ts: Date.now(),
                         },
                     ];
@@ -275,22 +248,12 @@ export default function WaterQuality() {
                     vals.reduce((a, v) => a + v.turbidity, 0) / vals.length
                 ).toFixed(1),
             ),
-            do_mgl: parseFloat(
-                (vals.reduce((a, v) => a + v.do_mgl, 0) / vals.length).toFixed(
-                    2,
-                ),
-            ),
-            temp_c: parseFloat(
-                (vals.reduce((a, v) => a + v.temp_c, 0) / vals.length).toFixed(
-                    1,
-                ),
-            ),
         };
     }, [seabins, history]);
 
     return (
-        <div className='flex flex-col gap-6 p-6 lg:p-8'>
-            <header className='flex flex-wrap items-end justify-between gap-4'>
+        <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+            <header className="flex min-w-0 flex-wrap items-end justify-between gap-4">
                 <div>
                     <div className='text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-teal-700/80'>
                         Sensors
@@ -299,8 +262,7 @@ export default function WaterQuality() {
                         Water quality monitor
                     </h1>
                     <p className='mt-1 text-sm text-slate-500'>
-                        Live pH, turbidity, dissolved oxygen and temperature —
-                        updated every 3 s.
+                        Live pH and turbidity — updated every 3 s.
                     </p>
                 </div>
                 <div className='flex items-center gap-2 text-[0.72rem] text-slate-500'>
@@ -312,12 +274,12 @@ export default function WaterQuality() {
                 </div>
             </header>
 
-            {/* Fleet averages */}
+            {/* Seabin network averages */}
             <section>
                 <div className='mb-3 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-slate-500'>
-                    Fleet average — all {seabins.length} seabins
+                    Seabin average — all {seabins.length} units
                 </div>
-                <div className='grid grid-cols-2 gap-4 lg:grid-cols-4'>
+                <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
                     <MetricTile
                         label='pH'
                         value={avgReading.ph}
@@ -346,43 +308,16 @@ export default function WaterQuality() {
                         range={[0, 100]}
                         normalRange='< 25 NTU'
                     />
-                    <MetricTile
-                        label='Dissolved O₂'
-                        value={avgReading.do_mgl}
-                        unit=' mg/L'
-                        sparkValues={seabins.map(
-                            (sb) => history[sb.id]?.at(-1)?.do_mgl ?? 5,
-                        )}
-                        sparkColor='#3b82f6'
-                        status={doStatus(avgReading.do_mgl)}
-                        icon={<Wind size={12} />}
-                        range={[0, 10]}
-                        normalRange='≥ 6 mg/L'
-                    />
-                    <MetricTile
-                        label='Temperature'
-                        value={avgReading.temp_c}
-                        unit=' °C'
-                        sparkValues={seabins.map(
-                            (sb) =>
-                                history[sb.id]?.at(-1)?.temp_c ?? 30,
-                        )}
-                        sparkColor='#f97316'
-                        status={tempStatus(avgReading.temp_c)}
-                        icon={<Thermometer size={12} />}
-                        range={[26, 34]}
-                        normalRange='28 – 30 °C'
-                    />
                 </div>
             </section>
 
             {/* Per-seabin filter */}
             <section>
-                <div className='mb-3 flex flex-wrap items-center gap-2'>
-                    <div className='text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-slate-500'>
+                <div className="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                    <div className="shrink-0 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
                         Per-seabin readings
                     </div>
-                    <div className='ml-auto flex flex-wrap items-center gap-1.5 rounded-full bg-white p-1 ring-1 ring-slate-200/80'>
+                    <div className="-mx-1 flex min-w-0 max-w-full snap-x snap-mandatory items-center gap-1.5 overflow-x-auto overflow-y-hidden scroll-smooth rounded-full bg-white p-1 pl-1 ring-1 ring-slate-200/80 [scrollbar-width:thin] sm:mx-0 sm:ml-auto sm:flex-wrap sm:overflow-x-visible sm:pl-0">
                         <FilterBtn
                             id='all'
                             label='All'
@@ -401,21 +336,21 @@ export default function WaterQuality() {
                     </div>
                 </div>
 
-                <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
+                <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {displaySeabins.map((sb) => {
                         const hist = history[sb.id] ?? [];
                         const r: Reading = hist.at(-1) ?? baseReading(sb);
                         return (
                             <div
                                 key={sb.id}
-                                className='rounded-2xl border border-slate-200/80 bg-white p-5'
+                                className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5"
                             >
-                                <div className='mb-4 flex items-center justify-between'>
-                                    <div>
-                                        <div className='text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-400'>
+                                <div className="mb-4 flex min-w-0 items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-400">
                                             {sb.id}
                                         </div>
-                                        <div className='text-sm font-semibold text-slate-800'>
+                                        <div className="truncate text-sm font-semibold text-slate-800">
                                             {sb.area}
                                         </div>
                                     </div>
@@ -429,7 +364,7 @@ export default function WaterQuality() {
                                         }`}
                                     />
                                 </div>
-                                <div className='grid grid-cols-2 gap-3'>
+                                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                                     <MiniStat
                                         label='pH'
                                         value={r.ph.toString()}
@@ -443,20 +378,6 @@ export default function WaterQuality() {
                                         status={turbidityStatus(r.turbidity)}
                                         sparkline={hist.map((h) => h.turbidity)}
                                         sparkColor='#f59e0b'
-                                    />
-                                    <MiniStat
-                                        label='DO'
-                                        value={`${r.do_mgl} mg/L`}
-                                        status={doStatus(r.do_mgl)}
-                                        sparkline={hist.map((h) => h.do_mgl)}
-                                        sparkColor='#3b82f6'
-                                    />
-                                    <MiniStat
-                                        label='Temp'
-                                        value={`${r.temp_c} °C`}
-                                        status={tempStatus(r.temp_c)}
-                                        sparkline={hist.map((h) => h.temp_c)}
-                                        sparkColor='#f97316'
                                     />
                                 </div>
                             </div>
@@ -481,9 +402,9 @@ function FilterBtn({
 }) {
     return (
         <button
-            type='button'
+            type="button"
             onClick={() => onClick(id)}
-            className={`rounded-full px-3 py-1.5 text-[0.78rem] font-medium transition-colors ${
+            className={`shrink-0 snap-start rounded-full px-3 py-1.5 text-[0.78rem] font-medium transition-colors ${
                 selected === id
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
@@ -508,17 +429,19 @@ function MiniStat({
     sparkColor: string;
 }) {
     return (
-        <div className='flex flex-col gap-1 rounded-xl bg-slate-50 p-3'>
-            <div className='flex items-center justify-between'>
-                <span className='text-[0.62rem] font-semibold uppercase tracking-wider text-slate-500'>
+        <div className="flex min-w-0 flex-col gap-1 overflow-hidden rounded-xl bg-slate-50 p-3">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-[0.62rem] font-semibold uppercase tracking-wider text-slate-500">
                     {label}
                 </span>
-                <Sparkline values={sparkline.slice(-12)} color={sparkColor} />
+                <div className="shrink-0">
+                    <Sparkline values={sparkline.slice(-12)} color={sparkColor} />
+                </div>
             </div>
-            <div className='text-sm font-semibold tabular-nums text-slate-800'>
+            <div className="min-w-0 truncate text-sm font-semibold tabular-nums text-slate-800" title={value}>
                 {value}
             </div>
-            <div className={`text-[0.65rem] font-medium ${status.color}`}>
+            <div className={`min-w-0 truncate text-[0.65rem] font-medium ${status.color}`}>
                 {status.label}
             </div>
         </div>

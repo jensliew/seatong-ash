@@ -1,4 +1,4 @@
-import { impactStats, topPlasticCategories, offtakePartners } from '../data/impact'
+import { impactStats, marineDebrisTypes, offtakePartners } from '../data/impact'
 import { useLiveCounter } from '../hooks/useLiveCounter'
 import { CheckCircle2, Clock, Sparkles, TrendingUp, Leaf, Building2 } from 'lucide-react'
 
@@ -111,14 +111,14 @@ export default function PlasticCredits() {
           </div>
         </section>
 
-        {/* Plastic categories */}
+        {/* Marine debris breakdown */}
         <section className="flex flex-col rounded-2xl border border-slate-200/80 bg-white">
           <header className="border-b border-slate-100 px-5 py-3.5">
-            <div className="text-sm font-semibold text-slate-800">Plastic mix captured</div>
-            <div className="text-[0.72rem] text-slate-500">Share of items · last 30 days</div>
+            <div className="text-sm font-semibold text-slate-800">Marine debris type</div>
+            <div className="text-[0.72rem] text-slate-500">Rubbish types · last 30 days</div>
           </header>
           <ul className="flex-1 divide-y divide-slate-100">
-            {topPlasticCategories.map((c) => (
+            {marineDebrisTypes.map((c) => (
               <li key={c.key} className="flex items-center gap-4 px-5 py-2.5">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2 text-sm">

@@ -23,7 +23,7 @@ interface Props {
   seabin: Seabin | null
 }
 
-/** Single decorative seabin silhouette for the fleet header (no per-unit dots). */
+/** Single decorative seabin silhouette for the page header (no per-unit dots). */
 export default function FleetHeaderSeabin({ seabin }: Props) {
   const status = seabin?.status ?? 'active'
   const collar = STATUS_COLLAR[status]

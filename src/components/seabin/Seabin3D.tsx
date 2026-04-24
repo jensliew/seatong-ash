@@ -7,7 +7,7 @@ import {
     MeshTransmissionMaterial,
 } from '@react-three/drei';
 import * as THREE from 'three';
-import { Box, Eye, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Box, Eye } from 'lucide-react';
 import type { Seabin } from '../../types';
 import {
     streamScenarioForSeabin,
@@ -85,6 +85,10 @@ const SCENARIO_VISUAL: Record<
         ledPulseMul: number;
         showFishOrbit: boolean;
         ambientMul: number;
+        /** Scene background — deep water colour matching the scenario mood. */
+        bgColor: string;
+        /** Ocean floor colour. */
+        floorColor: string;
     }
 > = {
     default: {
@@ -103,6 +107,8 @@ const SCENARIO_VISUAL: Record<
         ledPulseMul: 1,
         showFishOrbit: false,
         ambientMul: 1,
+        bgColor: '#0b2235',
+        floorColor: '#0a2d40',
     },
     ph_deadfish: {
         particleFactor: 1.15,
@@ -120,6 +126,8 @@ const SCENARIO_VISUAL: Record<
         ledPulseMul: 1.5,
         showFishOrbit: false,
         ambientMul: 0.85,
+        bgColor: '#130c25',
+        floorColor: '#1a1030',
     },
     fish_haven: {
         particleFactor: 0.4,
@@ -137,6 +145,8 @@ const SCENARIO_VISUAL: Record<
         ledPulseMul: 0.8,
         showFishOrbit: true,
         ambientMul: 1.05,
+        bgColor: '#071e2c',
+        floorColor: '#083040',
     },
     heavy_pollution: {
         particleFactor: 1.6,
@@ -154,6 +164,8 @@ const SCENARIO_VISUAL: Record<
         ledPulseMul: 1.35,
         showFishOrbit: false,
         ambientMul: 0.9,
+        bgColor: '#100e07',
+        floorColor: '#1a160a',
     },
 };
 
@@ -171,40 +183,6 @@ function idHashSeed(id: string): number {
         h |= 0;
     }
     return Math.abs(h);
-}
-
-function clamp01(v: number): number {
-    return Math.min(1, Math.max(0, v));
-}
-
-function formatDuration(minutes: number): string {
-    if (!Number.isFinite(minutes) || minutes <= 0) return 'now';
-    const h = Math.floor(minutes / 60);
-    const m = Math.round(minutes % 60);
-    if (h <= 0) return `${m}m`;
-    if (m <= 0) return `${h}h`;
-    return `${h}h ${m}m`;
-}
-
-function formatHoursSince(ts: number): string {
-    const hours = Math.max(0, Math.round((Date.now() - ts) / (1000 * 60 * 60)));
-    return `${hours}h ago`;
-}
-
-function scenarioAnomalyReason(seabin: Seabin, scenario: StreamScenario): string {
-    if (scenario === 'heavy_pollution') {
-        if (seabin.capacity >= 90) return 'Near-full bin + surge debris';
-        if (seabin.turbidity >= 88) return 'Extreme turbidity + debris surge';
-        return 'Critical contamination signal';
-    }
-    if (scenario === 'ph_deadfish') {
-        if (seabin.dead_fish_today >= 2 && seabin.ph < 6.95)
-            return 'Low pH + fish mortality trend';
-        if (seabin.ph < 6.95) return 'Acidic pH drift';
-        return 'Fish mortality anomaly';
-    }
-    if (scenario === 'fish_haven') return 'Pause mode for marine life safety';
-    return 'No active anomaly';
 }
 
 /* ─── Expanding ripple ring ──────────────────────────────────────────── */
@@ -237,6 +215,65 @@ function RippleRing({
                 opacity={0.26}
                 depthWrite={false}
             />
+        </mesh>
+    );
+}
+
+/* ─── Rising underwater bubbles ─────────────────────────────────────── */
+function BubbleParticles({ count = 18 }: { count?: number }) {
+    const defs = useMemo(
+        () =>
+            Array.from({ length: count }, (_, i) => ({
+                x: (hash01(i * 37.3) - 0.5) * 3.2,
+                z: (hash01(i * 53.7) - 0.5) * 3.2,
+                speed: 0.18 + hash01(i * 71.9) * 0.22,
+                phase: hash01(i * 97.1) * 6.28,
+                size: 0.012 + hash01(i * 113.3) * 0.018,
+                wobble: hash01(i * 131.7) * 0.3,
+            })),
+        [count],
+    );
+
+    const refs = useRef<(THREE.Mesh | null)[]>([]);
+    useFrame(({ clock }) => {
+        const t = clock.getElapsedTime();
+        defs.forEach((d, i) => {
+            const m = refs.current[i];
+            if (!m) return;
+            const p = ((t * d.speed + d.phase) % 3.5) / 3.5;
+            m.position.set(
+                d.x + Math.sin(t * 0.4 + d.phase) * d.wobble,
+                -3.0 + p * 4.2,
+                d.z + Math.cos(t * 0.35 + d.phase) * d.wobble,
+            );
+            (m.material as THREE.MeshBasicMaterial).opacity =
+                p < 0.15 ? p / 0.15 * 0.35 : p > 0.75 ? (1 - p) / 0.25 * 0.35 : 0.35;
+        });
+    });
+
+    return (
+        <>
+            {defs.map((_, i) => (
+                <mesh key={i} ref={(el) => { refs.current[i] = el; }}>
+                    <sphereGeometry args={[defs[i].size, 6, 6]} />
+                    <meshBasicMaterial
+                        color='#7dd3fc'
+                        transparent
+                        opacity={0.35}
+                        depthWrite={false}
+                    />
+                </mesh>
+            ))}
+        </>
+    );
+}
+
+/* ─── Ocean floor plane ──────────────────────────────────────────────── */
+function OceanFloor({ color }: { color: string }) {
+    return (
+        <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -3.2, 0]}>
+            <planeGeometry args={[28, 28, 1, 1]} />
+            <meshStandardMaterial color={color} roughness={0.95} metalness={0.0} />
         </mesh>
     );
 }
@@ -965,6 +1002,10 @@ function Scene({
     const sv = SCENARIO_VISUAL[scenario];
     return (
         <Suspense fallback={null}>
+            {/* Ocean background — no white */}
+            <color attach='background' args={[sv.bgColor]} />
+            <fog attach='fog' args={[sv.bgColor, 5, 18]} />
+
             <ambientLight intensity={0.7 * sv.ambientMul} />
             <directionalLight
                 position={[3, 6, 3]}
@@ -976,16 +1017,25 @@ function Scene({
                 intensity={sv.warmthIntensity}
                 color={sv.warmthLight}
             />
+            {/* Underwater caustic fill — blue-green from below */}
+            <pointLight
+                position={[0, -2.0, 0]}
+                intensity={0.55 * sv.ambientMul}
+                color='#0ea5e9'
+            />
             <pointLight
                 position={[-2, 0.5, -1]}
                 intensity={0.35 * sv.ambientMul}
-                color='#a8d8ea'
+                color='#7dd3fc'
             />
             <pointLight
                 position={[2.2, 0.8, 1.5]}
                 intensity={0.25}
                 color={pal.glow}
             />
+
+            <OceanFloor color={sv.floorColor} />
+            <BubbleParticles count={20} />
             <SeabinModel
                 seabin={seabin}
                 scenario={scenario}
@@ -1021,6 +1071,8 @@ interface Props {
     seabin: Seabin;
     /** Compact decorative mode: no controls, transparent background */
     compact?: boolean;
+    /** Embedded inside a parent card — strip own border/bg/rounded styling */
+    embedded?: boolean;
     /** Stream narrative; defaults from seabin id (same as live preview). */
     scenario?: StreamScenario;
 }
@@ -1028,109 +1080,17 @@ interface Props {
 export default function Seabin3D({
     seabin,
     compact = false,
+    embedded = false,
     scenario: scenarioProp,
 }: Props) {
     const pal = STATUS_PALETTE[seabin.status];
     const scenario = scenarioProp ?? streamScenarioForSeabin(seabin);
     const meta = SCENARIO_META[scenario];
     const sv = SCENARIO_VISUAL[scenario];
-    const [viewMode, setViewMode] = useState<ViewMode>('exterior');
-    const [showDetails, setShowDetails] = useState(false);
-    const seed = idHashSeed(seabin.id);
-
-    const insights = useMemo(() => {
-        const rateMulByScenario: Record<StreamScenario, number> = {
-            default: 1,
-            heavy_pollution: 1.34,
-            ph_deadfish: 0.86,
-            fish_haven: 0.4,
-        };
-        const baseRate = 3.1 + seabin.debris_intensity * 7.9;
-        const captureRateKgHr =
-            seabin.status === 'inactive'
-                ? 0
-                : baseRate *
-                  rateMulByScenario[scenario] *
-                  (0.72 + seabin.health_score / 220);
-        const remainingPct = Math.max(0, 100 - seabin.capacity);
-        const fillPctPerHour = Math.max(
-            0.5,
-            captureRateKgHr * (0.85 + seabin.debris_intensity * 0.6),
-        );
-        const etaMinutes =
-            seabin.status === 'active'
-                ? (remainingPct / fillPctPerHour) * 60
-                : Number.POSITIVE_INFINITY;
-
-        // Simulated service stamps: deterministic per unit, refreshed by current time.
-        const now = Date.now();
-        const lookbackH = 2 + Math.floor(hash01(seed + 13) * 16);
-        const lastServiceTs = now - lookbackH * 60 * 60 * 1000;
-        const nextServiceMinutes =
-            seabin.status === 'inactive'
-                ? Number.POSITIVE_INFINITY
-                : Math.min(
-                      etaMinutes,
-                      Math.max(30, (100 - seabin.health_score) * 6),
-                  );
-
-        const inletPh = 6.75 + hash01(seed + 29) * 0.65;
-        const outletPh = Math.min(
-            7.55,
-            seabin.ph + (scenario === 'ph_deadfish' ? 0.08 : 0.22),
-        );
-        const phDelta = outletPh - inletPh;
-
-        const inletTurbidity = Math.min(
-            98,
-            seabin.turbidity + 8 + Math.round(hash01(seed + 31) * 10),
-        );
-        const turbidityDrop = Math.max(
-            2,
-            Math.round(
-                inletTurbidity *
-                    (0.09 +
-                        seabin.debris_intensity * 0.11 +
-                        (scenario === 'heavy_pollution' ? 0.06 : 0)),
-            ),
-        );
-        const outletTurbidity = Math.max(0, inletTurbidity - turbidityDrop);
-        const turbidityDeltaPct =
-            inletTurbidity > 0
-                ? ((inletTurbidity - outletTurbidity) / inletTurbidity) * 100
-                : 0;
-
-        const confidence = Math.round(
-            clamp01(
-                seabin.health_score / 100 -
-                    (scenario === 'heavy_pollution' ? 0.08 : 0) -
-                    (seabin.status === 'inactive' ? 0.2 : 0),
-            ) * 100,
-        );
-        const fleetBaseRate = 6.1;
-        const captureDeltaVsFleet =
-            fleetBaseRate > 0
-                ? ((captureRateKgHr - fleetBaseRate) / fleetBaseRate) * 100
-                : 0;
-        const fleetEtaMinutes = 360;
-        const etaDeltaVsFleet =
-            Number.isFinite(etaMinutes) && fleetEtaMinutes > 0
-                ? ((etaMinutes - fleetEtaMinutes) / fleetEtaMinutes) * 100
-                : 0;
-
-        return {
-            captureRateKgHr,
-            etaMinutes,
-            lastServiceTs,
-            nextServiceMinutes,
-            phDelta,
-            turbidityDeltaPct,
-            anomalyReason: scenarioAnomalyReason(seabin, scenario),
-            confidence,
-            captureDeltaVsFleet,
-            etaDeltaVsFleet,
-        };
-    }, [scenario, seabin, seed]);
+    // Default to cutaway when embedded so the interior is immediately visible
+    const [viewMode, setViewMode] = useState<ViewMode>(
+        embedded ? 'cutaway' : 'exterior',
+    );
 
     if (compact) {
         return (
@@ -1153,50 +1113,46 @@ export default function Seabin3D({
         );
     }
 
+    const outerClass = embedded
+        ? 'absolute inset-0 flex flex-col overflow-hidden'
+        : 'relative flex h-full min-h-96 w-full flex-col overflow-hidden rounded-2xl border border-slate-200/80';
+
     return (
-        <div className='relative flex h-full min-h-96 w-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-linear-to-b from-sky-50/60 to-teal-50/60'>
-            {/* Top-left: minimal live + scenario tag */}
-            <div className='pointer-events-none absolute left-4 top-4 z-10 flex max-w-[min(100%,22rem)] flex-col gap-1.5'>
-                <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
-                    <span className='inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-teal-800 shadow-sm ring-1 ring-teal-200/80 backdrop-blur'>
-                        <span className='relative flex h-1.5 w-1.5'>
-                            <span className='absolute inset-0 animate-ping rounded-full bg-teal-500 opacity-60' />
-                            <span className='relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500' />
+        <div className={outerClass}>
+            {/* Top-left: clock (only when NOT embedded — card toolbar handles context) */}
+            {!embedded && (
+                <div className='pointer-events-none absolute left-4 top-4 z-10 flex max-w-[min(100%,22rem)] flex-col gap-1.5'>
+                    <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
+                        <span className='inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-teal-800 shadow-sm ring-1 ring-teal-200/80 backdrop-blur'>
+                            <span className='relative flex h-1.5 w-1.5'>
+                                <span className='absolute inset-0 animate-ping rounded-full bg-teal-500 opacity-60' />
+                                <span className='relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500' />
+                            </span>
+                            Live
                         </span>
-                        Live
-                    </span>
+                        <LiveClock />
+                    </div>
+                    <div className='inline-flex items-center gap-1.5 self-start rounded-full bg-white/80 px-2.5 py-1 shadow-sm ring-1 ring-slate-200 backdrop-blur'>
+                        <span
+                            className='h-1.5 w-1.5 rounded-full'
+                            style={{ background: sv.warmthLight }}
+                        />
+                        <span className='text-[0.72rem] font-semibold leading-none text-slate-800'>
+                            {meta.title}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* Clock only when embedded */}
+            {embedded && (
+                <div className='pointer-events-none absolute left-3 top-3 z-10'>
                     <LiveClock />
                 </div>
-                <div className='inline-flex items-center gap-1.5 self-start rounded-full bg-white/80 px-2.5 py-1 shadow-sm ring-1 ring-slate-200 backdrop-blur'>
-                    <span
-                        className='h-1.5 w-1.5 rounded-full'
-                        style={{ background: sv.warmthLight }}
-                    />
-                    <span className='text-[0.72rem] font-semibold leading-none text-slate-800'>
-                        {meta.title}
-                    </span>
-                </div>
-            </div>
+            )}
 
-            {/* Top-right: view mode badge */}
-            <div className='pointer-events-none absolute right-4 top-4 z-10'>
-                <span
-                    className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide shadow-sm ring-1 backdrop-blur'
-                    style={{
-                        background:
-                            viewMode === 'cutaway'
-                                ? 'rgba(14,165,233,0.12)'
-                                : 'rgba(255,255,255,0.8)',
-                        color: viewMode === 'cutaway' ? '#0369a1' : '#475569',
-                        borderColor: 'transparent',
-                    }}
-                >
-                    {viewMode === 'cutaway' ? 'Cutaway view' : 'Exterior view'}
-                </span>
-            </div>
-
-            {/* Bottom-right: icon control dock */}
-            <div className='absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full bg-white/85 p-1 shadow-md ring-1 ring-slate-200 backdrop-blur'>
+            {/* View mode toggle — pill button with label, bottom-centre */}
+            <div className='absolute bottom-3 left-1/2 z-10 -translate-x-1/2'>
                 <button
                     type='button'
                     onClick={() =>
@@ -1204,126 +1160,42 @@ export default function Seabin3D({
                             v === 'exterior' ? 'cutaway' : 'exterior',
                         )
                     }
-                    title={
-                        viewMode === 'exterior'
-                            ? 'Show cutaway (see inside)'
-                            : 'Show exterior'
-                    }
                     aria-label='Toggle cutaway view'
-                    className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition ${
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[0.7rem] font-semibold shadow-md backdrop-blur transition-all ${
                         viewMode === 'cutaway'
-                            ? 'bg-sky-100 text-sky-700'
-                            : 'text-slate-600 hover:bg-slate-100'
+                            ? 'border-sky-300/60 bg-sky-900/70 text-sky-200 hover:bg-sky-800/80'
+                            : 'border-white/30 bg-black/40 text-white hover:bg-black/60'
                     }`}
                 >
                     {viewMode === 'cutaway' ? (
-                        <Box size={14} />
+                        <>
+                            <Box size={12} />
+                            Exterior view
+                        </>
                     ) : (
-                        <Eye size={14} />
+                        <>
+                            <Eye size={12} />
+                            See inside (cutaway)
+                        </>
                     )}
                 </button>
             </div>
 
-            {/* Bottom-left: tiny status pill (context without clutter) */}
-            <div className='pointer-events-none absolute bottom-3 left-4 z-10'>
-                <span className='inline-flex items-center gap-1.5 rounded-full bg-white/75 px-2 py-0.5 text-[0.6rem] font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 backdrop-blur'>
-                    <span
-                        className='h-1.5 w-1.5 rounded-full'
-                        style={{ background: pal.led }}
-                    />
-                    {seabin.capacity}% full · {seabin.contamination_risk}{' '}
-                    risk
-                </span>
-            </div>
-            {/* Useful live ops chips */}
-            <div className='absolute left-4 top-22 z-10 max-w-[20rem]'>
-                <div className='mb-1 flex items-center gap-1.5 sm:hidden'>
-                    <button
-                        type='button'
-                        onClick={() => setShowDetails((v) => !v)}
-                        className='pointer-events-auto inline-flex items-center gap-1 rounded-full bg-white/85 px-2 py-0.5 text-[0.58rem] font-semibold uppercase tracking-wide text-slate-600 shadow-sm ring-1 ring-slate-200 backdrop-blur'
-                        aria-expanded={showDetails}
-                        aria-label='Toggle details chips'
-                    >
-                        details {showDetails ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    </button>
-                    <span className='inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-[0.58rem] font-medium text-slate-500 shadow-sm ring-1 ring-slate-200 backdrop-blur'>
-                        <Info size={11} /> tap chips for hints
+            {/* Bottom-right: capacity pill — only when NOT embedded (stat strip covers this) */}
+            {!embedded && (
+                <div className='pointer-events-none absolute bottom-3 right-4 z-10'>
+                    <span className='inline-flex items-center gap-1.5 rounded-full bg-white/75 px-2 py-0.5 text-[0.6rem] font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 backdrop-blur'>
+                        <span
+                            className='h-1.5 w-1.5 rounded-full'
+                            style={{ background: pal.led }}
+                        />
+                        {seabin.capacity}% full · {seabin.contamination_risk} risk
                     </span>
                 </div>
-                <div
-                    className={`grid grid-cols-1 gap-1.5 transition-all sm:grid-cols-2 ${
-                        showDetails ? 'max-h-80 opacity-100' : 'max-h-14 overflow-hidden sm:max-h-80 sm:opacity-100 opacity-95'
-                    }`}
-                >
-                    <span
-                        title='Estimated time to reach full capacity using current capture/load rate.'
-                        className='inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur transition hover:bg-white'
-                    >
-                        ETA full: {formatDuration(insights.etaMinutes)} ·{' '}
-                        {insights.etaDeltaVsFleet >= 0 ? '+' : ''}
-                        {Math.round(insights.etaDeltaVsFleet)}% vs fleet
-                    </span>
-                    <span
-                        title='Live estimated debris collection throughput.'
-                        className='inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur transition hover:bg-white'
-                    >
-                        Capture: {insights.captureRateKgHr.toFixed(1)} kg/h ·{' '}
-                        {insights.captureDeltaVsFleet >= 0 ? '+' : ''}
-                        {Math.round(insights.captureDeltaVsFleet)}% vs fleet
-                    </span>
-                    <span
-                        title='Outlet pH minus inlet pH (positive means improved neutrality).'
-                        className='inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur transition hover:bg-white'
-                    >
-                        pH delta: {insights.phDelta >= 0 ? '+' : ''}
-                        {insights.phDelta.toFixed(2)}
-                    </span>
-                    <span
-                        title='Estimated turbidity reduction through intake cycle.'
-                        className='inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur transition hover:bg-white'
-                    >
-                        Turbidity: -{Math.round(insights.turbidityDeltaPct)}%
-                    </span>
-                    <span
-                        title='Deterministic simulated timestamp of last emptying cycle.'
-                        className='inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur transition hover:bg-white'
-                    >
-                        Last service: {formatHoursSince(insights.lastServiceTs)}
-                    </span>
-                    <span
-                        title='Recommended next service based on fill ETA and health score.'
-                        className='inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[0.6rem] font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur transition hover:bg-white'
-                    >
-                        Next service: {formatDuration(insights.nextServiceMinutes)}
-                    </span>
-                    <span
-                        title='Sensor trust score adjusted by scenario stress and device state.'
-                        className='inline-flex items-center rounded-full px-2 py-0.5 text-[0.6rem] font-medium shadow-sm ring-1 backdrop-blur col-span-1 sm:col-span-2 transition'
-                        style={{
-                            background:
-                                insights.confidence >= 80
-                                    ? 'rgba(16,185,129,0.12)'
-                                    : insights.confidence >= 60
-                                      ? 'rgba(245,158,11,0.12)'
-                                      : 'rgba(239,68,68,0.12)',
-                            color:
-                                insights.confidence >= 80
-                                    ? '#065f46'
-                                    : insights.confidence >= 60
-                                      ? '#92400e'
-                                      : '#991b1b',
-                            borderColor: 'transparent',
-                        }}
-                    >
-                        Sensor confidence {insights.confidence}% ·{' '}
-                        {insights.anomalyReason}
-                    </span>
-                </div>
-            </div>
+            )}
 
             <Canvas
-                camera={{ position: [0, 1.2, 3.0], fov: 42 }}
+                camera={{ position: [0, 1.0, 2.4], fov: 48 }}
                 shadows
                 className='flex-1'
                 style={{ touchAction: 'none' }}

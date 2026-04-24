@@ -145,7 +145,7 @@ export default function MainLayout() {
 
                     <NavLink
                         to='/fleet'
-                        title={collapsed ? 'Fleet' : undefined}
+                        title={collapsed ? 'Seabins' : undefined}
                         className={({ isActive }) =>
                             itemClass(isActive, collapsed)
                         }
@@ -153,7 +153,7 @@ export default function MainLayout() {
                         <Waves className='shrink-0' size={18} />
                         {!collapsed && (
                             <span className='flex min-w-0 flex-1 items-center gap-2'>
-                                <span className='truncate'>Fleet</span>
+                                <span className='truncate'>Seabins</span>
                                 <span className='ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[0.65rem] font-medium text-slate-500'>
                                     {stats.total}
                                 </span>
@@ -219,11 +219,11 @@ export default function MainLayout() {
                         )}
                     </NavLink>
 
-                    {/* Fleet status widget */}
+                    {/* Seabin status widget */}
                     {!collapsed && (
                         <>
                             <div className='px-2.5 pb-1.5 pt-5 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-slate-400'>
-                                Fleet status
+                                Seabin status
                             </div>
                             <div className='mx-1.5 rounded-xl border border-slate-200/80 bg-slate-50/60 px-3 py-2.5'>
                                 <div className='flex items-center justify-between text-[0.7rem]'>

@@ -62,8 +62,8 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <div className="xl:col-span-2">
+      <section className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-3">
+        <div className="min-h-0 xl:col-span-2">
           <ContaminationRiskCard seabins={seabins} />
         </div>
         <div className="min-h-0">

@@ -82,7 +82,7 @@ export default function Fleet() {
                 <div className='relative flex items-center justify-between gap-6'>
                     <div className='min-w-0'>
                         <div className='text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-teal-700/80'>
-                            Fleet
+                            Seabins
                         </div>
                         <h1 className='mt-1 text-[1.75rem] font-semibold tracking-tight text-slate-900'>
                             Port Klang deployment
@@ -122,7 +122,7 @@ export default function Fleet() {
             <section className='overflow-hidden rounded-2xl border border-slate-200/80 bg-white'>
                 <div className='flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between'>
                     <div className='text-sm font-medium text-slate-700'>
-                        Fleet map
+                        Seabin map
                     </div>
                     <div className='text-right text-[0.72rem] text-slate-500'>
                         <div>Click a marker to open the unit.</div>

@@ -1,5 +1,4 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { AlertTriangle } from 'lucide-react'
 import type { Seabin } from '../../types'
 
 const riskValue: Record<Seabin['contamination_risk'], number> = {
@@ -77,31 +76,49 @@ export default function ContaminationRiskCard({ seabins }: Props) {
   data.sort((a, b) => b.risk - a.risk)
 
   return (
-    <div className="bg-white border border-teal-200 rounded-xl p-5 shadow-sm">
-      <div className="flex items-center gap-2 text-slate-500 text-sm mb-4">
-        <AlertTriangle size={16} className="text-orange-400" />
-        Contamination Risk by Area
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white">
+      <header className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+        <div>
+          <div className="text-sm font-semibold text-slate-800">Contamination Risk by Area</div>
+          <div className="text-[0.72rem] text-slate-500">Highest risk level per port zone</div>
+        </div>
+        <span className="shrink-0 text-[0.68rem] font-medium uppercase tracking-wider text-slate-400">
+          By zone
+        </span>
+      </header>
+      <div className="min-h-0 flex-1 px-3 pb-2 pt-1 sm:px-5">
+        <div className="h-48 sm:h-52">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 2 }}>
+              <XAxis
+                dataKey="area"
+                tick={{ fill: '#64748b', fontSize: 10 }}
+                interval={0}
+                angle={-12}
+                textAnchor="end"
+                height={48}
+                tickLine={false}
+                axisLine={{ stroke: '#e2e8f0' }}
+              />
+              <YAxis
+                domain={[0, 4]}
+                ticks={[1, 2, 3, 4]}
+                tickFormatter={(v: number) => riskLabels[v] || ''}
+                tick={{ fill: '#64748b', fontSize: 10 }}
+                width={48}
+                tickLine={false}
+                axisLine={{ stroke: '#e2e8f0' }}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(13, 148, 136, 0.06)' }} />
+              <Bar dataKey="risk" radius={[4, 4, 0, 0]}>
+                {data.map((d, i) => (
+                  <Cell key={i} fill={riskColor[d.risk]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
-      <div className="h-48">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
-            <XAxis dataKey="area" tick={{ fill: '#64748b', fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={40} />
-            <YAxis
-              domain={[0, 4]}
-              ticks={[1, 2, 3, 4]}
-              tickFormatter={(v: number) => riskLabels[v] || ''}
-              tick={{ fill: '#64748b', fontSize: 10 }}
-              width={55}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(13,148,136,0.06)' }} />
-            <Bar dataKey="risk" radius={[4, 4, 0, 0]}>
-              {data.map((d, i) => (
-                <Cell key={i} fill={riskColor[d.risk]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    </section>
   )
 }
